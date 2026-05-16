@@ -193,15 +193,15 @@ These files are in the `source-documents/` folder and contain the primary data i
 
 ### External Sources
 
-1. Upwork "Freelance Forward" Annual Impact Report 2023
-2. Fiverr Q4 2023 Earnings Call
-3. Payoneer Global Freelancer Income Report 2022–2023
-4. ArtStation / Adobe press materials 2021–2023
-5. Chainalysis Global Crypto Adoption Index 2023
-6. Google-Temasek-Bain e-Conomy SEA 2024 Report
-7. PSA Philippines 2024 labor force data
-8. DOLE Philippines 2024 estimates
-9. Bangko Sentral ng Pilipinas Digital Payments Report 2024
-10. Stellar Development Foundation Annual Report 2024
-11. Grand View Research "Digital Art Market" 2024
-12. Vgen platform statistics 2024
+1. [Upwork "Freelance Forward" Annual Impact Report 2023](https://www.upwork.com/research/freelance-forward-2023-research-report)
+2. [Fiverr Q4 2023 Earnings Call](https://investors.fiverr.com/news-releases/news-release-details/fiverr-announces-fourth-quarter-and-full-year-2023-results)
+3. [Payoneer Global Freelancer Income Report 2022–2023](https://www.payoneer.com/resources/business/the-payoneer-2023-freelancer-insights-report/)
+4. [ArtStation (Adobe) — Artist Platform](https://www.artstation.com/)
+5. [Chainalysis Global Crypto Adoption Index 2023](https://www.chainalysis.com/blog/2023-global-crypto-adoption-index/)
+6. [Google-Temasek-Bain e-Conomy SEA 2024 Report](https://www.bain.com/insights/e-conomy-sea-2024/)
+7. [PSA Philippines — Labor Force Survey](https://psa.gov.ph/statistics/labor-force-survey)
+8. [DOLE Philippines — Institute for Labor Studies](https://ils.dole.gov.ph/labor-force-survey-reports)
+9. [Bangko Sentral ng Pilipinas Digital Payments Report 2024](https://www.bsp.gov.ph/PaymentAndSettlement/2024_Report_on_E-payments_Measurement.pdf)
+10. [Stellar Development Foundation 2024 Year in Review](https://stellar.org/blog/foundation-news/2024-year-in-review)
+11. [Grand View Research — Online Art Market Report](https://www.grandviewresearch.com/industry-analysis/online-art-market-report)
+12. [Vgen Platform](https://vgen.co/)

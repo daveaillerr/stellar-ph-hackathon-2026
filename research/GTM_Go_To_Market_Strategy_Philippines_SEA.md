@@ -631,11 +631,11 @@ These files are in the `source-documents/` folder and contain the primary data i
 
 ### External Sources
 
-1. Payoneer Global Freelancer Income Report 2022–2023 — Philippines #3 globally for freelancer earnings; design as #1 skill category; 1.5M registered PH freelancers; 70% of PH commissions from overseas clients
-2. DOLE Philippines 2024 — PH freelancer population estimates
-3. Chainalysis Global Crypto Adoption Index 2023 — Philippines #1, Vietnam #2, Thailand #5 in SEA crypto adoption; 55% SEA crypto-accessible rate
-4. r/artcommissions (subreddit public stats) — 420K+ members; chargeback/ghosting posts appearing weekly
-5. Bangko Sentral ng Pilipinas Digital Payments Report 2024 — 71% of Filipinos using digital payments in 2024 (up from 30% in 2020)
-6. Google-Temasek-Bain e-Conomy SEA 2024 Report — SEA digital economy and freelance market context
-7. Vgen platform statistics 2024 — 250K artists, 9.4–10.4% fee structure, no-milestones limitation
-8. Stellar Development Foundation Annual Report 2024 — USDC on Stellar grew 340% in 2024
+1. [Payoneer Global Freelancer Income Report 2022–2023](https://www.payoneer.com/resources/business/the-payoneer-2023-freelancer-insights-report/) — Philippines #3 globally for freelancer earnings; design as #1 skill category; 1.5M registered PH freelancers; 70% of PH commissions from overseas clients
+2. [DOLE Philippines — Institute for Labor Studies](https://ils.dole.gov.ph/labor-force-survey-reports) — PH freelancer population estimates
+3. [Chainalysis Global Crypto Adoption Index 2023](https://www.chainalysis.com/blog/2023-global-crypto-adoption-index/) — Philippines #1, Vietnam #2, Thailand #5 in SEA crypto adoption; 55% SEA crypto-accessible rate
+4. [r/artcommissions (Reddit)](https://www.reddit.com/r/artcommissions/) — 420K+ members; chargeback/ghosting posts appearing weekly
+5. [Bangko Sentral ng Pilipinas Digital Payments Report 2024](https://www.bsp.gov.ph/PaymentAndSettlement/2024_Report_on_E-payments_Measurement.pdf) — 71% of Filipinos using digital payments in 2024 (up from 30% in 2020)
+6. [Google-Temasek-Bain e-Conomy SEA 2024 Report](https://www.bain.com/insights/e-conomy-sea-2024/) — SEA digital economy and freelance market context
+7. [Vgen Platform](https://vgen.co/) — 250K artists, 9.4–10.4% fee structure, no-milestones limitation
+8. [Stellar Development Foundation 2024 Year in Review](https://stellar.org/blog/foundation-news/2024-year-in-review) — USDC on Stellar grew 340% in 2024

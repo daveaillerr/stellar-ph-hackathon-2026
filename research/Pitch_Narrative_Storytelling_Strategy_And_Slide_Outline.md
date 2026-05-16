@@ -314,10 +314,10 @@ These files are in the `source-documents/` folder and contain the primary data i
 
 ### External Sources
 
-1. Payoneer Global Freelancer Income Report 2022–2023 — 1.5M registered PH freelancers; design as #1 skill category; Philippines #3 globally for freelancer earnings (Slides 4 and 11)
-2. DOLE Philippines 2024 — PH freelancer population estimates supporting scale numbers
-3. PayPal Seller Protection Policy (official PayPal policy page) — Digital and intangible services exclusion clause; ₱900 dispute processing fee — cited verbatim in Slide 3 and verbal scripts
-4. Stellar Development Foundation — 3–5 second transaction finality; ~$0.001 per transaction fee (Slide 8 technical credibility)
-5. Upwork / Fiverr public pricing — 20% fee benchmark for competing platforms (Slide 5 comparison)
-6. r/artcommissions (subreddit public stats) — 420K+ members; payment complaint frequency (Slide 10 traction/validation)
-7. Grand View Research, "Digital Art Market" 2024 — $3.5B market, 14% CAGR used in market sizing narrative
+1. [Payoneer Global Freelancer Income Report 2022–2023](https://www.payoneer.com/resources/business/the-payoneer-2023-freelancer-insights-report/) — 1.5M registered PH freelancers; design as #1 skill category; Philippines #3 globally for freelancer earnings (Slides 4 and 11)
+2. [DOLE Philippines — Institute for Labor Studies](https://ils.dole.gov.ph/labor-force-survey-reports) — PH freelancer population estimates supporting scale numbers
+3. [PayPal Seller Protection Policy](https://www.paypal.com/us/legalhub/paypal/seller-protection) — Digital and intangible services exclusion clause; ₱900 dispute processing fee — cited verbatim in Slide 3 and verbal scripts
+4. [Stellar Development Foundation 2024 Year in Review](https://stellar.org/blog/foundation-news/2024-year-in-review) — 3–5 second transaction finality; ~$0.001 per transaction fee (Slide 8 technical credibility)
+5. [Upwork Freelance Forward 2023](https://www.upwork.com/research/freelance-forward-2023-research-report) — 20% fee benchmark for competing platforms (Slide 5 comparison)
+6. [r/artcommissions (Reddit)](https://www.reddit.com/r/artcommissions/) — 420K+ members; payment complaint frequency (Slide 10 traction/validation)
+7. [Grand View Research — Online Art Market Report](https://www.grandviewresearch.com/industry-analysis/online-art-market-report) — $3.5B market, 14% CAGR used in market sizing narrative

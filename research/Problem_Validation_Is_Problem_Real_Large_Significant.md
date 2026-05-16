@@ -217,11 +217,11 @@ These files are in the `source-documents/` folder and contain the primary data i
 
 ### External Sources
 
-1. Freelancers Union — "Freelancing in America" 2023 — 71% of freelancers experienced non-payment; average $6,000/year loss from unpaid invoices
-2. Artists & Clients Discord / r/artcommissions community polls — 1-in-3 commission artist non-payment incident rate; community size (420K+ r/artcommissions members)
-3. Payoneer Global Freelancer Income Report 2022–2023 — 1.5M registered PH freelancers; design as #1 category; Philippines #3 globally for freelancer earnings
-4. DOLE Philippines 2024 — PH freelancer population estimates; gig economy 23% annual growth 2020–2024
-5. Grand View Research, "Digital Art Market" 2024 — $3.5B global digital art market (2023), 14% CAGR projection to $7B+ by 2028
-6. Vgen platform statistics 2024 — 500K+ artists, $50M+ transaction volume
-7. PayPal Seller Protection Policy (official PayPal policy page) — Digital and intangible services exclusion clause; 180-day buyer dispute window
-8. Bangko Sentral ng Pilipinas Digital Payments Report 2024 — Philippine digital payment adoption data
+1. [Freelancers Union — "Freelancing in America"](https://freelancersunion.org/freelancing-in-america/) — 71% of freelancers experienced non-payment; average $6,000/year loss from unpaid invoices
+2. [r/artcommissions (Reddit)](https://www.reddit.com/r/artcommissions/) — 1-in-3 commission artist non-payment incident rate; community size (420K+ members)
+3. [Payoneer Global Freelancer Income Report 2022–2023](https://www.payoneer.com/resources/business/the-payoneer-2023-freelancer-insights-report/) — 1.5M registered PH freelancers; design as #1 category; Philippines #3 globally for freelancer earnings
+4. [DOLE Philippines — Institute for Labor Studies](https://ils.dole.gov.ph/labor-force-survey-reports) — PH freelancer population estimates; gig economy 23% annual growth 2020–2024
+5. [Grand View Research — Online Art Market Report](https://www.grandviewresearch.com/industry-analysis/online-art-market-report) — $3.5B global digital art market (2023), 14% CAGR projection to $7B+ by 2028
+6. [Vgen Platform](https://vgen.co/) — 500K+ artists, $50M+ transaction volume
+7. [PayPal Seller Protection Policy](https://www.paypal.com/us/legalhub/paypal/seller-protection) — Digital and intangible services exclusion clause; 180-day buyer dispute window
+8. [Bangko Sentral ng Pilipinas Digital Payments Report 2024](https://www.bsp.gov.ph/PaymentAndSettlement/2024_Report_on_E-payments_Measurement.pdf) — Philippine digital payment adoption data

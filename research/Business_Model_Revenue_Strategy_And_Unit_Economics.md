@@ -470,11 +470,11 @@ These files are in the `source-documents/` folder and contain the primary data i
 
 ### External Sources
 
-1. Stellar Development Foundation — Stellar ledger transaction fee (~$0.00001 per operation) used in cost-per-transaction breakdown
-2. Stripe public pricing — 2.9% + $0.30 per transaction; 20–25% gross margin benchmark cited in gross margin comparison
-3. Escrow.com public pricing — $25 minimum or 3.25% fee used in competitor positioning table
-4. Payoneer Global Freelancer Income Report 2022–2023 — SAM of 1.45M SEA digital art freelancers; Philippines #3 globally
-5. Chainalysis Global Crypto Adoption Index 2023 — 55% SEA crypto-accessible rate used in SAM calculation
+1. [Stellar Development Foundation 2024 Year in Review](https://stellar.org/blog/foundation-news/2024-year-in-review) — Stellar ledger transaction fee (~$0.00001 per operation) used in cost-per-transaction breakdown
+2. [Stripe Pricing](https://stripe.com/pricing) — 2.9% + $0.30 per transaction; 20–25% gross margin benchmark cited in gross margin comparison
+3. [Escrow.com](https://www.escrow.com/) — $25 minimum or 3.25% fee used in competitor positioning table
+4. [Payoneer Global Freelancer Income Report 2022–2023](https://www.payoneer.com/resources/business/the-payoneer-2023-freelancer-insights-report/) — SAM of 1.45M SEA digital art freelancers; Philippines #3 globally
+5. [Chainalysis Global Crypto Adoption Index 2023](https://www.chainalysis.com/blog/2023-global-crypto-adoption-index/) — 55% SEA crypto-accessible rate used in SAM calculation
 6. Industry LTV:CAC benchmarks — 3:1 standard fintech ratio; Pangolin 23:1 compared against this
 7. GCash/Maya adoption data — 15–25% Y1 adoption rate benchmark for digital payment products in Philippines
-8. Vgen platform statistics 2024 — 250K artists in ~3 years used as SOM adoption benchmark
+8. [Vgen Platform](https://vgen.co/) — 250K artists in ~3 years used as SOM adoption benchmark

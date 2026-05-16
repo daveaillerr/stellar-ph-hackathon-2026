@@ -420,9 +420,9 @@ These files are in the `source-documents/` folder and contain the primary data i
 
 ### External Sources
 
-1. Payoneer Global Freelancer Income Report 2022–2023 — 1.5M PH freelancers baseline; design as #1 skill category (used in Assumption 5 validation framing)
-2. PayPal Seller Protection Policy (official PayPal policy page) — Digital and intangible services exclusion clause used verbatim in validation post scripts and DM templates
-3. r/artcommissions (subreddit public stats) — 420K+ members; chargeback post frequency (primary validation community target)
-4. Chainalysis Global Crypto Adoption Index 2023 — Philippines crypto accessibility data supporting Assumption 6 (Stellar + USDC viability)
-5. Rob Fitzpatrick, "The Mom Test" (2013) — Interview methodology framework: ask about past behavior not future intent; never ask "would you use our product" — applied throughout Section 5 interview questions
-6. Escrow.com and Contra — Referenced in Section 6 (Riskiest Assumption) for client-side review research validation step
+1. [Payoneer Global Freelancer Income Report 2022–2023](https://www.payoneer.com/resources/business/the-payoneer-2023-freelancer-insights-report/) — 1.5M PH freelancers baseline; design as #1 skill category (used in Assumption 5 validation framing)
+2. [PayPal Seller Protection Policy](https://www.paypal.com/us/legalhub/paypal/seller-protection) — Digital and intangible services exclusion clause used verbatim in validation post scripts and DM templates
+3. [r/artcommissions (Reddit)](https://www.reddit.com/r/artcommissions/) — 420K+ members; chargeback post frequency (primary validation community target)
+4. [Chainalysis Global Crypto Adoption Index 2023](https://www.chainalysis.com/blog/2023-global-crypto-adoption-index/) — Philippines crypto accessibility data supporting Assumption 6 (Stellar + USDC viability)
+5. [Rob Fitzpatrick, "The Mom Test" (2013)](https://www.momtestbook.com/) — Interview methodology framework: ask about past behavior not future intent; never ask "would you use our product" — applied throughout Section 5 interview questions
+6. [Escrow.com](https://www.escrow.com/) — Referenced in Section 6 (Riskiest Assumption) for client-side review research validation step
