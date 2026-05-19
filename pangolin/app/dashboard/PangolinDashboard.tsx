@@ -1,7 +1,8 @@
 // @ts-nocheck
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Client Dashboard
@@ -332,7 +333,46 @@ const ESCROWS = [
   },
 ];
 
-function EscrowTable() {
+function formatWallet(wallet) {
+  if (!wallet) return "Invite pending";
+  if (wallet.length <= 12) return wallet;
+  return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+}
+
+function statusLabel(status) {
+  const map = {
+    created: "Awaiting Delivery",
+    funded: "In Progress",
+    active: "In Progress",
+    delivered: "Delivered · Review",
+    approved: "Completed",
+    completed: "Completed",
+    disputed: "Disputed",
+  };
+  return map[status] || "In Progress";
+}
+
+function toDisplayEscrow(escrow) {
+  const wallet = escrow.freelancer_wallet || "";
+  const amount = Number(escrow.amount_usdc || 0);
+  const status = statusLabel(escrow.status);
+
+  return {
+    id: escrow.id,
+    project: escrow.title || "Untitled Escrow",
+    freelancer: {
+      initials: wallet ? wallet.slice(0, 2).toUpperCase() : "IP",
+      name: formatWallet(wallet),
+      color: "#8B5CF6",
+    },
+    status,
+    amount: `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    milestone: escrow.deadline ? `Due ${escrow.deadline}` : "Single payment",
+    action: { label: status === "Delivered · Review" ? "Review" : "View Details", variant: status === "Delivered · Review" ? "coral" : "subtle" },
+  };
+}
+
+function EscrowTable({ rows, loading, error }) {
   const cols = ["Project", "Freelancer", "Status", "Amount", "Milestone", "Action"];
   return (
     <div style={{
@@ -353,9 +393,27 @@ function EscrowTable() {
       </div>
 
       {/* Rows */}
-      {ESCROWS.map((row, i) => (
-        <EscrowRow key={i} row={row} last={i === ESCROWS.length - 1} />
-      ))}
+      {loading ? (
+        <TableMessage title="Loading escrows..." message="Reading the latest contracts from Supabase." />
+      ) : error ? (
+        <TableMessage title="Could not load escrows" message={error} tone="error" />
+      ) : rows.length === 0 ? (
+        <TableMessage title="No escrows yet" message="Create your first escrow and it will appear here." actionLabel="Create Escrow" />
+      ) : (
+        rows.map((row, i) => (
+          <EscrowRow key={row.id || i} row={row} last={i === rows.length - 1} />
+        ))
+      )}
+    </div>
+  );
+}
+
+function TableMessage({ title, message, tone, actionLabel }) {
+  return (
+    <div style={{ padding: "34px 24px", textAlign: "center", borderTop: `1px solid rgba(36,36,48,.7)` }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color: tone === "error" ? "#F87171" : C.text, marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 12.5, color: C.textSub, lineHeight: 1.6, marginBottom: actionLabel ? 16 : 0 }}>{message}</div>
+      {actionLabel && <Btn variant="coral" size="sm" onClick={() => go("/create-escrow")}>{actionLabel}</Btn>}
     </div>
   );
 }
@@ -401,7 +459,7 @@ function EscrowRow({ row, last }) {
         </div>
       </div>
       {/* Action */}
-      <div><Btn variant={row.action.variant} size="sm" onClick={() => go("/escrow")}>{row.action.label}</Btn></div>
+      <div><Btn variant={row.action.variant} size="sm" onClick={() => go(row.id ? `/escrow?id=${row.id}` : "/escrow")}>{row.action.label}</Btn></div>
     </div>
   );
 }
@@ -482,6 +540,38 @@ function NotifBell() {
 export default function PangolinDashboard() {
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState("dashboard");
+  const [escrows, setEscrows] = useState([]);
+  const [loadingEscrows, setLoadingEscrows] = useState(true);
+  const [escrowError, setEscrowError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadEscrows() {
+      setLoadingEscrows(true);
+      setEscrowError("");
+
+      const { data, error } = await supabase
+        .from("escrows")
+        .select("id,title,status,amount_usdc,freelancer_wallet,deadline,created_at")
+        .order("created_at", { ascending: false });
+
+      if (!mounted) return;
+
+      if (error) {
+        setEscrowError(error.message);
+        setEscrows([]);
+      } else {
+        setEscrows((data || []).map(toDisplayEscrow));
+      }
+
+      setLoadingEscrows(false);
+    }
+
+    loadEscrows();
+
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <>
@@ -552,8 +642,8 @@ export default function PangolinDashboard() {
 
             {/* ── Stats Row ── */}
             <div style={{ display: "flex", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
-              <StatCard icon="💰" label="Total Escrowed" value="₱28,500"  sub="Across 3 active projects"   color={C.coral}  trend={12} />
-              <StatCard icon="📁" label="Active Projects" value="3"        sub="2 awaiting your action"     color={C.blue}              />
+              <StatCard icon="💰" label="Total Escrowed" value="Live"  sub="Synced from Supabase"   color={C.coral}  trend={12} />
+              <StatCard icon="📁" label="Active Projects" value={loadingEscrows ? "..." : escrows.length}        sub="Contracts in database"     color={C.blue}              />
               <StatCard icon="✅" label="Completed"       value="17"       sub="Since Jan 2025"             color={C.green}  trend={8}  />
               <StatCard icon="⭐" label="Trust Score"     value="4.9 / 5"  sub="Based on 17 transactions"  color={C.amber}             />
             </div>
@@ -563,11 +653,11 @@ export default function PangolinDashboard() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <div>
                   <h2 style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: "-.02em" }}>Active Escrows</h2>
-                  <p style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>3 contracts currently in progress</p>
+                  <p style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>{loadingEscrows ? "Loading contracts..." : `${escrows.length} contracts currently in Supabase`}</p>
                 </div>
                 <Btn variant="ghost" size="sm" onClick={() => go("/escrow")}>View All →</Btn>
               </div>
-              <EscrowTable />
+              <EscrowTable rows={escrows} loading={loadingEscrows} error={escrowError} />
             </div>
 
             {/* ── Bottom row: Activity + Quick Tips ── */}

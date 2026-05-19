@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Escrow Creation Wizard  (3-step)
@@ -511,7 +512,7 @@ function Step2({ data, setData, onNext, onBack }) {
 }
 
 // ── STEP 3: Review & Confirm ──────────────────────────────────────────────────
-function Step3({ data, onBack, onSubmit }) {
+function Step3({ data, onBack, onSubmit, saving, submitError }) {
   const [confirmed, setConfirmed] = useState(false);
   const total = parseFloat(data.totalAmount) || 0;
   const fee = (total * 0.025).toFixed(2);
@@ -633,10 +634,16 @@ function Step3({ data, onBack, onSubmit }) {
       {/* CTAs */}
       <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
         <Btn variant="ghost" size="lg" onClick={onBack}>← Back</Btn>
-        <Btn variant="coral" size="xl" fullWidth disabled={!confirmed} onClick={onSubmit}>
-          🔒 Fund Escrow Now
+        <Btn variant="coral" size="xl" fullWidth disabled={!confirmed || saving} onClick={onSubmit}>
+          {saving ? "Creating Escrow..." : "🔒 Fund Escrow Now"}
         </Btn>
       </div>
+
+      {submitError && (
+        <div style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.28)", borderRadius: 12, padding: "12px 14px", color: "#F87171", fontSize: 12.5, lineHeight: 1.5 }}>
+          {submitError}
+        </div>
+      )}
 
       <div style={{ textAlign: "center", fontSize: 12, color: C.textMuted }}>
         Secured by Stellar Network · 3–5 second settlement · 2.5% total platform fee
@@ -675,11 +682,76 @@ export default function PangolinEscrowWizard() {
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
   const [data, setData] = useState(INIT);
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const scrollRef = useRef(null);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
 
-  const reset = () => { setStep(1); setDone(false); setData(INIT); };
+  const reset = () => { setStep(1); setDone(false); setData(INIT); setSubmitError(""); };
+
+  const createEscrow = async () => {
+    setSaving(true);
+    setSubmitError("");
+
+    try {
+      const amount = Number(data.totalAmount) || 0;
+      const minPct = Number(data.minGuarantee ?? 60);
+      const platformFee = Number((amount * 0.025).toFixed(2));
+      const minGuaranteeAmount = Number(((amount * minPct) / 100).toFixed(2));
+
+      const { data: escrow, error } = await supabase
+        .from("escrows")
+        .insert({
+          client_wallet: "demo-client-wallet",
+          freelancer_wallet: data.freelancerWallet || null,
+          title: data.title,
+          category: data.category,
+          description: data.description,
+          amount_usdc: amount,
+          platform_fee_usdc: platformFee,
+          min_guarantee_pct: minPct,
+          min_guarantee_usdc: minGuaranteeAmount,
+          status: "created",
+          deadline: data.deadline || null,
+          review_hours: (data.autoRelease ?? true) ? 48 : null,
+          auto_release_enabled: data.autoRelease ?? true,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      const milestoneRows = data.milestonesEnabled
+        ? (data.milestones || [])
+            .filter(m => m.name || m.amount)
+            .map((m, index) => ({
+              escrow_id: escrow.id,
+              title: m.name || `Milestone ${index + 1}`,
+              amount_usdc: Number(m.amount) || 0,
+              sort_order: index + 1,
+              status: "created",
+            }))
+        : [];
+
+      if (milestoneRows.length > 0) {
+        const { error: milestoneError } = await supabase.from("milestones").insert(milestoneRows);
+        if (milestoneError) throw milestoneError;
+      }
+
+      await supabase.from("escrow_events").insert({
+        escrow_id: escrow.id,
+        event_type: "escrow_created",
+        message: "Escrow created from Pangolin demo",
+      });
+
+      setDone(true);
+    } catch (error) {
+      setSubmitError(error?.message || "We could not create this escrow yet. Please check Supabase policies and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
@@ -756,7 +828,7 @@ export default function PangolinEscrowWizard() {
             ) : step === 2 ? (
               <Step2 data={data} setData={setData} onNext={() => setStep(3)} onBack={() => setStep(1)} />
             ) : (
-              <Step3 data={data} onBack={() => setStep(2)} onSubmit={() => setDone(true)} />
+              <Step3 data={data} onBack={() => setStep(2)} onSubmit={createEscrow} saving={saving} submitError={submitError} />
             )}
           </div>
 
