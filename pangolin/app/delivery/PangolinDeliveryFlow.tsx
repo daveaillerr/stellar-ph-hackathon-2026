@@ -1,0 +1,710 @@
+import { useState, useRef, useEffect } from "react";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PANGOLIN  —  Freelancer Delivery Flow
+   Screen A: Submit Delivery · Screen B: Payment Received
+   Dark #0D0D0F · Coral #FF6B35 · Inter · Fully self-contained JSX
+───────────────────────────────────────────────────────────────────────────── */
+
+const C = {
+  base:      "#0D0D0F",
+  surface:   "#111116",
+  elevated:  "#17171F",
+  card:      "#1D1D28",
+  border:    "#26263A",
+  borderLit: "#363650",
+  coral:     "#FF6B35",
+  coralDk:   "#D9521A",
+  blue:      "#3B82F6",
+  green:     "#10B981",
+  amber:     "#F59E0B",
+  purple:    "#8B5CF6",
+  teal:      "#14B8A6",
+  text:      "#F0F0F8",
+  textSub:   "#8888A8",
+  textMuted: "#4C4C64",
+  font:      "'Inter',-apple-system,BlinkMacSystemFont,sans-serif",
+};
+const PHP = 58.3;
+const phpOf = u => (parseFloat(u) * PHP).toLocaleString("en-PH", { minimumFractionDigits: 0 });
+
+function useHover() {
+  const [h, setH] = useState(false);
+  return [h, { onMouseEnter: () => setH(true), onMouseLeave: () => setH(false) }];
+}
+
+// ── Shared primitives ──────────────────────────────────────────────────────────
+function Btn({ variant = "coral", size = "md", children, onClick, disabled, fullWidth, style: sx = {} }) {
+  const [h, hov] = useHover();
+  const dis = !!disabled;
+  const S = {
+    sm:  { p: "8px 18px",  f: "13px",   r: "10px" },
+    md:  { p: "12px 24px", f: "14px",   r: "12px" },
+    lg:  { p: "14px 30px", f: "15.5px", r: "13px" },
+    xl:  { p: "18px 40px", f: "16.5px", r: "100px" },
+  }[size] || { p: "12px 24px", f: "14px", r: "12px" };
+  const V = {
+    coral:  { bg: dis ? "#2A1508" : h ? "linear-gradient(135deg,#FF7C48,#D9521A)" : "linear-gradient(135deg,#FF6B35,#D9521A)", col: dis ? "#6B3820" : "#fff", bd: "none", shd: dis ? "none" : h ? "0 12px 40px rgba(255,107,53,.55),0 0 0 1px rgba(255,107,53,.38)" : "0 6px 24px rgba(255,107,53,.35),0 0 0 1px rgba(255,107,53,.25)" },
+    blue:   { bg: h ? "linear-gradient(135deg,#5A9BFF,#2563EB)" : "linear-gradient(135deg,#3B82F6,#2563EB)", col: "#fff", bd: "none", shd: h ? "0 10px 36px rgba(59,130,246,.5)" : "0 5px 18px rgba(59,130,246,.28)" },
+    ghost:  { bg: h ? "rgba(255,107,53,.07)" : "transparent", col: h ? C.coral : C.textSub, bd: `1px solid ${h ? "rgba(255,107,53,.3)" : C.border}`, shd: "none" },
+    subtle: { bg: h ? C.card : C.elevated, col: C.text, bd: `1px solid ${h ? C.borderLit : C.border}`, shd: "none" },
+    green:  { bg: h ? "linear-gradient(135deg,#34D399,#059669)" : "linear-gradient(135deg,#10B981,#059669)", col: "#fff", bd: "none", shd: h ? "0 10px 36px rgba(16,185,129,.5)" : "0 5px 18px rgba(16,185,129,.28)" },
+  }[variant] || {};
+  return (
+    <button onClick={dis ? undefined : onClick} {...(dis ? {} : hov)} style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+      fontFamily: C.font, fontWeight: 700, cursor: dis ? "not-allowed" : "pointer",
+      transition: "all .17s cubic-bezier(.4,0,.2,1)",
+      transform: !dis && h ? "translateY(-1px)" : "none",
+      width: fullWidth ? "100%" : "auto",
+      padding: S.p, fontSize: S.f, borderRadius: S.r,
+      background: V.bg, color: V.col, border: V.bd || "none", boxShadow: V.shd || "none",
+      letterSpacing: "-.01em", whiteSpace: "nowrap", ...sx,
+    }}>{children}</button>
+  );
+}
+
+function GlassCard({ children, glow, style: sx = {}, nohover }) {
+  const [h, hov] = useHover();
+  const g = glow || "transparent";
+  const active = !nohover && h && !!glow;
+  return (
+    <div {...(nohover ? {} : hov)} style={{
+      background: "linear-gradient(145deg,rgba(26,26,38,.97),rgba(18,18,28,.97))",
+      border: `1px solid ${active ? g + "55" : C.border}`,
+      borderRadius: 18,
+      boxShadow: active ? `0 0 0 1px ${g}18,0 20px 60px rgba(0,0,0,.5),0 0 40px ${g}10` : "0 6px 28px rgba(0,0,0,.4)",
+      transform: active ? "translateY(-2px)" : "none",
+      transition: "all .22s cubic-bezier(.4,0,.2,1)",
+      position: "relative", overflow: "hidden", ...sx,
+    }}>
+      {glow && <div style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 1, background: `linear-gradient(90deg,transparent,${g}35,transparent)`, opacity: active ? 1 : 0, transition: "opacity .22s" }} />}
+      {children}
+    </div>
+  );
+}
+
+function FieldFocus({ children, accentColor = C.coral }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{
+      border: `1.5px solid ${focused ? accentColor + "70" : C.border}`,
+      borderRadius: 14, overflow: "hidden",
+      boxShadow: focused ? `0 0 0 3px ${accentColor}15` : "none",
+      transition: "all .18s ease",
+    }}>
+      {typeof children === "function" ? children({ setFocused }) : children}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SCREEN A — Submit Delivery
+// ════════════════════════════════════════════════════════════════════════════
+function ScreenA({ onSubmit }) {
+  const [files, setFiles] = useState([]);
+  const [dragging, setDragging] = useState(false);
+  const [link, setLink] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState(""); // "hashing" | "uploading" | "recording" | "done"
+  const fileRef = useRef();
+  const [linkFocused, setLinkFocused] = useState(false);
+  const [notesFocused, setNotesFocused] = useState(false);
+
+  const hasContent = files.length > 0 || link.trim().length > 0;
+  const hasNotes = notes.trim().length > 0;
+  const valid = hasContent;
+
+  const addFiles = newFiles => {
+    const mapped = Array.from(newFiles).slice(0, 5 - files.length).map(f => ({
+      name: f.name,
+      size: f.size > 1024 * 1024
+        ? (f.size / 1024 / 1024).toFixed(1) + " MB"
+        : (f.size / 1024).toFixed(0) + " KB",
+      hash: "sha256-" + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6),
+      type: f.type || "application/octet-stream",
+      id: Math.random(),
+    }));
+    setFiles(prev => [...prev, ...mapped].slice(0, 5));
+  };
+
+  const handleDrop = e => {
+    e.preventDefault(); setDragging(false);
+    addFiles(e.dataTransfer.files);
+  };
+
+  const fileIcon = (type) => {
+    if (type.includes("image")) return "🖼️";
+    if (type.includes("pdf"))   return "📑";
+    if (type.includes("zip") || type.includes("archive")) return "🗜️";
+    if (type.includes("figma") || type.includes("design")) return "🎨";
+    return "📄";
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const phases = [
+      { label: "hashing",    pct: 25,  delay: 600 },
+      { label: "uploading",  pct: 60,  delay: 900 },
+      { label: "recording",  pct: 90,  delay: 700 },
+      { label: "done",       pct: 100, delay: 500 },
+    ];
+    for (const p of phases) {
+      await new Promise(r => setTimeout(r, p.delay));
+      setPhase(p.label);
+      setProgress(p.pct);
+    }
+    await new Promise(r => setTimeout(r, 400));
+    onSubmit();
+  };
+
+  const phaseLabels = {
+    hashing:   "Computing SHA-256 file hash…",
+    uploading: "Uploading to IPFS…",
+    recording: "Timestamping on Stellar blockchain…",
+    done:      "Delivery recorded on-chain ✓",
+  };
+
+  return (
+    <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 16px 60px" }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 13, background: `linear-gradient(135deg,${C.coral}25,${C.coral}0A)`, border: `1px solid ${C.coral}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🚀</div>
+          <div>
+            <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 3 }}>Freelancer · Delivery</div>
+            <h1 style={{ fontSize: "clamp(18px,3.5vw,24px)", fontWeight: 900, letterSpacing: "-.04em", color: C.text, lineHeight: 1.2 }}>
+              Submit Your Work
+            </h1>
+          </div>
+        </div>
+
+        {/* Milestone badge */}
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 10,
+          background: "linear-gradient(135deg,rgba(255,107,53,.12),rgba(255,107,53,.04))",
+          border: "1px solid rgba(255,107,53,.28)", borderRadius: 12, padding: "10px 16px",
+        }}>
+          <div style={{ display: "flex", gap: 5 }}>
+            {[1, 2, 3].map(n => (
+              <div key={n} style={{ width: 22, height: 22, borderRadius: "50%", background: n <= 2 ? `linear-gradient(135deg,${C.coral},${C.coralDk})` : C.elevated, border: n <= 2 ? "none" : `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: n <= 2 ? "#fff" : C.textMuted }}>
+                {n < 2 ? "✓" : n}
+              </div>
+            ))}
+          </div>
+          <div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.coral }}>Milestone 2 of 3:</span>
+            <span style={{ fontSize: 13, color: C.textSub, marginLeft: 6 }}>Design System</span>
+          </div>
+          <div style={{ marginLeft: 8, fontSize: 13, fontWeight: 800, color: C.text }}>$800 USDC</div>
+        </div>
+      </div>
+
+      {/* Upload zone */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 7 }}>
+          File Upload <span style={{ fontSize: 11.5, color: C.textMuted, fontWeight: 400 }}>(max 5 files)</span>
+        </div>
+
+        <div
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => !submitting && fileRef.current?.click()}
+          style={{
+            border: `2px dashed ${dragging ? C.coral : files.length > 0 ? "rgba(255,107,53,.35)" : C.border}`,
+            borderRadius: 16, padding: "32px 20px", textAlign: "center",
+            cursor: submitting ? "default" : "pointer",
+            background: dragging ? "rgba(255,107,53,.06)" : files.length > 0 ? "rgba(255,107,53,.03)" : "rgba(255,255,255,.01)",
+            transition: "all .18s ease",
+            position: "relative", overflow: "hidden",
+          }}>
+          <input ref={fileRef} type="file" multiple onChange={e => addFiles(e.target.files)} style={{ display: "none" }} />
+
+          {/* Shimmer on drag */}
+          {dragging && (
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg,rgba(255,107,53,.08),transparent,rgba(255,107,53,.08))", backgroundSize: "200% 200%", animation: "shimmer 1.5s ease infinite" }} />
+          )}
+
+          {files.length === 0 ? (
+            <>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>📦</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: dragging ? C.coral : C.text, marginBottom: 6 }}>
+                {dragging ? "Drop to upload" : "Drag & drop your deliverables"}
+              </div>
+              <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6 }}>
+                or <span style={{ color: C.coral, fontWeight: 600 }}>browse files</span>
+                <br />ZIP, PDF, PNG, Figma exports, videos — anything
+              </div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 14, background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.2)", borderRadius: "100px", padding: "5px 14px", fontSize: 12, color: "#93C5FD", fontWeight: 600 }}>
+                ⛓️ SHA-256 hash recorded on Stellar blockchain
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, letterSpacing: ".05em", textTransform: "uppercase", marginBottom: 12 }}>
+                {files.length} file{files.length > 1 ? "s" : ""} ready
+              </div>
+              {files.map(f => (
+                <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 11, padding: "10px 14px", marginBottom: 8 }}>
+                  <span style={{ fontSize: 18 }}>{fileIcon(f.type)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2, fontFamily: "monospace" }}>
+                      {f.size} · <span style={{ color: "#60A5FA" }}>{f.hash.slice(0, 22)}…</span>
+                    </div>
+                  </div>
+                  {!submitting && (
+                    <button onClick={e => { e.stopPropagation(); setFiles(prev => prev.filter(x => x.id !== f.id)); }}
+                      style={{ background: "rgba(239,68,68,.1)", border: "none", borderRadius: 7, color: "#F87171", cursor: "pointer", padding: "4px 9px", fontSize: 12, flexShrink: 0 }}>✕</button>
+                  )}
+                </div>
+              ))}
+              {files.length < 5 && !submitting && (
+                <button style={{ marginTop: 4, background: "transparent", border: `1px dashed ${C.border}`, borderRadius: 10, color: C.textMuted, cursor: "pointer", padding: "8px 16px", fontSize: 12.5, fontFamily: C.font, width: "100%", transition: "border-color .15s, color .15s" }}
+                  onMouseEnter={e => { e.target.style.borderColor = C.coral; e.target.style.color = C.coral; }}
+                  onMouseLeave={e => { e.target.style.borderColor = C.border; e.target.style.color = C.textMuted; }}>
+                  + Add more files
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* External link */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 7 }}>
+          External Link <span style={{ fontSize: 11.5, color: C.textMuted, fontWeight: 400 }}>— or paste in addition to files</span>
+        </div>
+        <div style={{
+          display: "flex", alignItems: "center",
+          background: C.elevated,
+          border: `1.5px solid ${linkFocused ? "rgba(255,107,53,.65)" : C.border}`,
+          borderRadius: 13, overflow: "hidden",
+          boxShadow: linkFocused ? "0 0 0 3px rgba(255,107,53,.12)" : "none",
+          transition: "all .18s ease",
+        }}>
+          <div style={{ padding: "0 14px", fontSize: 18, borderRight: `1px solid ${C.border}`, paddingTop: 12, paddingBottom: 12 }}>🔗</div>
+          <input
+            value={link} onChange={e => setLink(e.target.value)}
+            onFocus={() => setLinkFocused(true)} onBlur={() => setLinkFocused(false)}
+            placeholder="https://figma.com/file/… or drive.google.com/…"
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, fontSize: 13.5, padding: "12px 16px", fontFamily: C.font, caretColor: C.coral }}
+          />
+        </div>
+        <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 6 }}>Figma, Google Drive, Notion, Dropbox — any public link works</div>
+      </div>
+
+      {/* Notes */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 7 }}>
+          Delivery Notes <span style={{ fontSize: 11.5, color: C.textMuted, fontWeight: 400 }}>({notes.length}/500)</span>
+        </div>
+        <textarea
+          value={notes} onChange={e => setNotes(e.target.value.slice(0, 500))} rows={4}
+          onFocus={() => setNotesFocused(true)} onBlur={() => setNotesFocused(false)}
+          placeholder="Summarise what's included, any important notes for the client, how to access the files, revision instructions, etc."
+          style={{
+            width: "100%", background: C.elevated, outline: "none", resize: "vertical",
+            border: `1.5px solid ${notesFocused ? "rgba(255,107,53,.65)" : C.border}`,
+            borderRadius: 13, padding: "13px 16px", color: C.text, fontSize: 14,
+            fontFamily: C.font, lineHeight: 1.65, caretColor: C.coral,
+            boxShadow: notesFocused ? "0 0 0 3px rgba(255,107,53,.12)" : "none",
+            transition: "border-color .18s, box-shadow .18s",
+          }}
+        />
+      </div>
+
+      {/* On-chain note */}
+      <div style={{
+        display: "flex", gap: 14, alignItems: "flex-start",
+        background: "rgba(59,130,246,.07)", border: "1px solid rgba(59,130,246,.22)",
+        borderRadius: 14, padding: "14px 18px", marginBottom: 22,
+      }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(59,130,246,.15)", border: "1px solid rgba(59,130,246,.28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>⛓️</div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#93C5FD", marginBottom: 4 }}>Tamper-proof delivery proof</div>
+          <div style={{ fontSize: 12.5, color: C.textSub, lineHeight: 1.65 }}>
+            Your file's SHA-256 hash will be <strong style={{ color: C.text }}>timestamped on the Stellar blockchain</strong> the moment you submit — creating an immutable, verifiable record of exactly when you delivered. This protects you in any future dispute.
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar during submission */}
+      {submitting && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: phase === "done" ? C.green : C.textSub }}>{phaseLabels[phase] || "Preparing…"}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: phase === "done" ? C.green : C.coral }}>{progress}%</span>
+          </div>
+          <div style={{ height: 6, background: "rgba(255,255,255,.06)", borderRadius: "100px", overflow: "hidden" }}>
+            <div style={{
+              height: "100%", borderRadius: "100px",
+              background: phase === "done" ? `linear-gradient(90deg,${C.green},#34D399)` : `linear-gradient(90deg,${C.coral},#FF9A6C)`,
+              width: `${progress}%`,
+              boxShadow: `0 0 12px ${phase === "done" ? "rgba(16,185,129,.6)" : "rgba(255,107,53,.5)"}`,
+              transition: "width .5s cubic-bezier(.4,0,.2,1), background .3s",
+            }} />
+          </div>
+          {/* Phase dots */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+            {[
+              { id: "hashing",   label: "Hash" },
+              { id: "uploading", label: "Upload" },
+              { id: "recording", label: "Stellar" },
+              { id: "done",      label: "Done" },
+            ].map(({ id, label }, i) => {
+              const phases = ["hashing", "uploading", "recording", "done"];
+              const idx = phases.indexOf(phase);
+              const myIdx = phases.indexOf(id);
+              const done = idx >= myIdx && phase !== "";
+              const active = phase === id;
+              return (
+                <div key={id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: "50%",
+                    background: done ? (active && id !== "done" ? `linear-gradient(135deg,${C.coral},${C.coralDk})` : id === "done" && done ? `linear-gradient(135deg,${C.green},#059669)` : C.coral) : C.elevated,
+                    border: `2px solid ${done ? (id === "done" ? C.green : C.coral) : C.border}`,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: done ? "#fff" : C.textMuted,
+                    transition: "all .3s",
+                  }}>{done ? "✓" : i + 1}</div>
+                  <span style={{ fontSize: 10, color: done ? (id === "done" ? C.green : C.coral) : C.textMuted }}>{label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* CTA */}
+      {!submitting ? (
+        <Btn variant="coral" size="xl" fullWidth disabled={!valid} onClick={handleSubmit}>
+          🚀 Submit Delivery
+        </Btn>
+      ) : (
+        <div style={{ padding: "16px", background: "rgba(255,107,53,.06)", border: `1px solid rgba(255,107,53,.2)`, borderRadius: 14, textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: C.textSub }}>
+            {phase === "done" ? "✅ Delivery recorded — redirecting…" : "Processing your delivery…"}
+          </div>
+        </div>
+      )}
+
+      {/* 48hr reminder */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, padding: "12px 16px", background: "rgba(245,158,11,.07)", border: "1px solid rgba(245,158,11,.2)", borderRadius: 12 }}>
+        <span style={{ fontSize: 16 }}>⏱️</span>
+        <span style={{ fontSize: 12.5, color: "rgba(252,211,77,.8)", lineHeight: 1.5 }}>
+          Client has <strong style={{ color: "#FCD34D" }}>48 hours</strong> to review and respond. If no action is taken, payment is auto-released to your wallet.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SCREEN B — Payment Received
+// ════════════════════════════════════════════════════════════════════════════
+
+function AnimatedCheck() {
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setDrawn(true), 100); return () => clearTimeout(t); }, []);
+
+  return (
+    <div style={{ position: "relative", width: 96, height: 96, margin: "0 auto 24px" }}>
+      {/* Outer glow rings */}
+      <div style={{
+        position: "absolute", inset: -16, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(16,185,129,.18) 0%, transparent 70%)",
+        animation: "pulse-ring 2.5s ease-in-out infinite",
+      }} />
+      <div style={{
+        position: "absolute", inset: -6, borderRadius: "50%",
+        border: "2px solid rgba(16,185,129,.25)",
+        animation: "pulse-ring 2.5s ease-in-out infinite .4s",
+      }} />
+      {/* Main circle */}
+      <div style={{
+        width: 96, height: 96, borderRadius: "50%",
+        background: `linear-gradient(135deg,${C.green},#059669)`,
+        boxShadow: "0 0 40px rgba(16,185,129,.5), 0 8px 32px rgba(16,185,129,.3)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        animation: "pop-in .4s cubic-bezier(.34,1.56,.64,1) .1s both",
+      }}>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <path d="M12 24 L21 33 L36 15"
+            stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
+            strokeDasharray="40" strokeDashoffset={drawn ? 0 : 40}
+            style={{ transition: "stroke-dashoffset .5s cubic-bezier(.4,0,.2,1) .5s" }} />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function TxHash() {
+  const hash = "0x4f3A2b9C8e1D7F56aB0c3E2d91f4A7B8C9e2D3F4";
+  const [copied, setCopied] = useState(false);
+  const display = hash.slice(0, 10) + "…" + hash.slice(-8);
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+      background: C.elevated, border: `1px solid ${C.border}`,
+      borderRadius: 12, padding: "12px 16px",
+    }}>
+      <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.blue, boxShadow: `0 0 6px ${C.blue}`, flexShrink: 0 }} />
+      <code style={{ fontSize: 13.5, color: "#93C5FD", fontFamily: "monospace", flex: 1 }}>{display}</code>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+          style={{ background: copied ? "rgba(16,185,129,.12)" : "rgba(59,130,246,.1)", border: `1px solid ${copied ? "rgba(16,185,129,.3)" : "rgba(59,130,246,.25)"}`, borderRadius: 8, color: copied ? C.green : C.blue, cursor: "pointer", padding: "5px 12px", fontSize: 12, fontFamily: C.font, fontWeight: 600, transition: "all .15s" }}>
+          {copied ? "✓ Copied" : "Copy"}
+        </button>
+        <button style={{ background: "rgba(59,130,246,.1)", border: "1px solid rgba(59,130,246,.25)", borderRadius: 8, color: C.blue, cursor: "pointer", padding: "5px 12px", fontSize: 12, fontFamily: C.font, fontWeight: 600 }}>
+          Stellar ↗
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BadgeCard() {
+  const [claimed, setClaimed] = useState(false);
+  const [popping, setPopping] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setPopping(true), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg,rgba(139,92,246,.14),rgba(139,92,246,.05))",
+      border: "1px solid rgba(139,92,246,.35)",
+      borderRadius: 16, padding: "18px 20px",
+      animation: popping ? "pop-in .5s cubic-bezier(.34,1.56,.64,1) both" : "none",
+      position: "relative", overflow: "hidden",
+    }}>
+      {/* Sparkle bg */}
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 80% 20%, rgba(139,92,246,.12) 0%, transparent 60%)", pointerEvents: "none" }} />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 16, flexShrink: 0,
+          background: "linear-gradient(135deg,rgba(139,92,246,.3),rgba(139,92,246,.12))",
+          border: "1.5px solid rgba(139,92,246,.45)",
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26,
+          boxShadow: "0 0 20px rgba(139,92,246,.3)",
+          animation: popping ? "wiggle .6s ease 1.2s" : "none",
+        }}>⭐</div>
+
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: C.purple, letterSpacing: ".06em", textTransform: "uppercase", background: "rgba(139,92,246,.15)", padding: "2px 8px", borderRadius: "100px", border: "1px solid rgba(139,92,246,.25)" }}>
+              New Badge Earned
+            </div>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-.02em", marginBottom: 3 }}>Milestone Complete ⭐</div>
+          <div style={{ fontSize: 12.5, color: C.textSub }}>Delivered on time · Verified on Stellar</div>
+        </div>
+
+        {!claimed ? (
+          <Btn variant="subtle" size="sm" onClick={() => setClaimed(true)} sx={{ flexShrink: 0 }}>Claim</Btn>
+        ) : (
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.green, flexShrink: 0 }}>Claimed ✓</div>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(139,92,246,.18)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 11.5, color: C.textMuted }}>Badge progress</span>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: C.purple }}>39 / 100 escrows</span>
+        </div>
+        <div style={{ height: 5, background: "rgba(255,255,255,.06)", borderRadius: "100px", overflow: "hidden" }}>
+          <div style={{ height: "100%", width: "39%", background: "linear-gradient(90deg,#8B5CF6,#A78BFA)", borderRadius: "100px", boxShadow: "0 0 8px rgba(139,92,246,.5)" }} />
+        </div>
+        <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>61 more to unlock "Elite Freelancer 💎"</div>
+      </div>
+    </div>
+  );
+}
+
+function ScreenB() {
+  const USDC = 200;
+
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 60px", textAlign: "center" }}>
+
+      {/* Check animation */}
+      <div style={{ paddingTop: 20 }}>
+        <AnimatedCheck />
+      </div>
+
+      {/* Amount */}
+      <div style={{ marginBottom: 6, animation: "fade-up .5s ease .3s both" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Payment Received</div>
+        <div style={{
+          fontSize: "clamp(48px, 12vw, 72px)", fontWeight: 900, letterSpacing: "-.06em", lineHeight: 1,
+          background: "linear-gradient(135deg,#FF6B35 20%,#FF9A6C 60%,#FFBD99 100%)",
+          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+          marginBottom: 8,
+        }}>
+          ${USDC.toFixed(2)}
+          <span style={{ fontSize: "0.35em", letterSpacing: "-.02em", marginLeft: 8, opacity: .8 }}>USDC</span>
+        </div>
+        <div style={{ fontSize: 20, color: C.textMuted, fontWeight: 600, letterSpacing: "-.02em" }}>
+          ≈ ₱{phpOf(USDC)}
+        </div>
+      </div>
+
+      {/* Settlement time */}
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, marginBottom: 28, background: "rgba(16,185,129,.1)", border: "1px solid rgba(16,185,129,.28)", borderRadius: "100px", padding: "6px 16px", animation: "fade-up .5s ease .45s both" }}>
+        <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.green, boxShadow: `0 0 6px ${C.green}` }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>Settled in 3.2 seconds on Stellar</span>
+      </div>
+
+      {/* Transaction details card */}
+      <GlassCard nohover style={{ padding: "20px", marginBottom: 18, textAlign: "left", animation: "fade-up .5s ease .55s both" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, letterSpacing: ".05em", textTransform: "uppercase", marginBottom: 12 }}>Transaction Details</div>
+
+        {[
+          { label: "From",      value: "Juan Miguel (Client)" },
+          { label: "To",        value: "Ana Kalaw — G2hW…k8X3" },
+          { label: "Milestone", value: "Milestone 2 — Design System" },
+          { label: "Timestamp", value: new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }) },
+          { label: "Network",   value: "Stellar Mainnet" },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(38,38,58,.5)" }}>
+            <span style={{ fontSize: 13, color: C.textMuted }}>{label}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{value}</span>
+          </div>
+        ))}
+
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>Transaction Hash</div>
+          <TxHash />
+        </div>
+      </GlassCard>
+
+      {/* Badge earned */}
+      <div style={{ marginBottom: 20, animation: "fade-up .5s ease .65s both" }}>
+        <BadgeCard />
+      </div>
+
+      {/* CTAs */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fade-up .5s ease .75s both" }}>
+        <Btn variant="coral" size="xl" fullWidth>
+          📲 Withdraw $200 to GCash
+        </Btn>
+        <Btn variant="blue" size="lg" fullWidth>
+          🏅 Add to Portfolio Badge
+        </Btn>
+        <Btn variant="ghost" size="md" fullWidth>
+          Back to Dashboard
+        </Btn>
+      </div>
+
+      {/* Remaining escrow note */}
+      <div style={{ marginTop: 20, padding: "12px 16px", background: "rgba(255,107,53,.06)", border: "1px solid rgba(255,107,53,.18)", borderRadius: 12 }}>
+        <div style={{ fontSize: 12.5, color: C.textSub, lineHeight: 1.6 }}>
+          <strong style={{ color: C.coral }}>$800 USDC</strong> remaining in escrow · Milestone 3 begins when client confirms.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Root
+// ════════════════════════════════════════════════════════════════════════════
+export default function PangolinDeliveryFlow() {
+  const [screen, setScreen] = useState("A");
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body, #root { min-height: 100%; }
+        body { font-family: 'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background: #0D0D0F; color: #F0F0F8; -webkit-font-smoothing: antialiased; }
+
+        @keyframes pulse-dot {
+          0%,100% { opacity:1; transform:scale(1); }
+          50%      { opacity:.45; transform:scale(.7); }
+        }
+        @keyframes fade-up {
+          from { opacity:0; transform:translateY(14px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes pop-in {
+          0%   { transform:scale(0); opacity:0; }
+          80%  { transform:scale(1.08); }
+          100% { transform:scale(1); opacity:1; }
+        }
+        @keyframes pulse-ring {
+          0%,100% { transform:scale(1);   opacity:.6; }
+          50%      { transform:scale(1.12); opacity:.2; }
+        }
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @keyframes wiggle {
+          0%,100% { transform:rotate(0deg); }
+          25%      { transform:rotate(-8deg); }
+          75%      { transform:rotate(8deg); }
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #0D0D0F; }
+        ::-webkit-scrollbar-thumb { background: #26263A; border-radius: 3px; }
+      `}</style>
+
+      {/* Page bg */}
+      <div style={{
+        minHeight: "100vh", overflowX: "hidden",
+        background: `
+          radial-gradient(ellipse 65% 45% at 10% 10%, rgba(255,107,53,.06) 0%, transparent 55%),
+          radial-gradient(ellipse 55% 40% at 85% 80%, rgba(16,185,129,.05) 0%, transparent 55%),
+          #0D0D0F`,
+        padding: "36px 0 60px",
+      }}>
+        {/* Grid texture */}
+        <div style={{ position: "fixed", inset: 0, opacity: .017, pointerEvents: "none", backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)", backgroundSize: "44px 44px" }} />
+
+        {/* Logo bar */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "linear-gradient(135deg,#1D1D28,#17171F)", border: `1px solid ${C.border}`, borderRadius: 14, padding: "10px 22px", boxShadow: "0 0 0 1px rgba(255,107,53,.08)" }}>
+            <span style={{ fontSize: 22 }}>🐧</span>
+            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-.03em", background: "linear-gradient(135deg,#FF6B35,#FF9A6C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Pangolin</span>
+          </div>
+        </div>
+
+        {/* Screen switcher */}
+        <div style={{ position: "fixed", top: 12, right: 16, zIndex: 999, display: "flex", gap: 4, background: "rgba(17,17,22,.9)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 5, backdropFilter: "blur(12px)" }}>
+          {[["A", "🚀 Submit"], ["B", "✅ Received"]].map(([id, label]) => (
+            <button key={id} onClick={() => setScreen(id)} style={{
+              padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: C.font,
+              background: screen === id ? "linear-gradient(135deg,rgba(255,107,53,.2),rgba(255,107,53,.08))" : "transparent",
+              boxShadow: screen === id ? "inset 0 0 0 1px rgba(255,107,53,.28)" : "none",
+              color: screen === id ? C.coral : C.textMuted,
+              fontSize: 12.5, fontWeight: screen === id ? 700 : 500,
+              transition: "all .15s",
+            }}>{label}</button>
+          ))}
+        </div>
+
+        {/* Screen content */}
+        <div key={screen} style={{ animation: "fade-up .32s ease" }}>
+          {screen === "A"
+            ? <ScreenA onSubmit={() => setScreen("B")} />
+            : <ScreenB />
+          }
+        </div>
+      </div>
+    </>
+  );
+}

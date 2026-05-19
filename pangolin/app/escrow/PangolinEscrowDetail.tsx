@@ -1,0 +1,786 @@
+import { useState, useEffect } from "react";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PANGOLIN  —  Escrow Detail Page (Client View)
+   Dark #0D0D0F · Coral #FF6B35 · Inter · Fully self-contained JSX
+───────────────────────────────────────────────────────────────────────────── */
+
+const C = {
+  base:       "#0D0D0F",
+  surface:    "#111116",
+  elevated:   "#17171F",
+  card:       "#1D1D28",
+  border:     "#26263A",
+  borderLit:  "#363650",
+  coral:      "#FF6B35",
+  coralDark:  "#D9521A",
+  blue:       "#3B82F6",
+  green:      "#10B981",
+  amber:      "#F59E0B",
+  purple:     "#8B5CF6",
+  red:        "#EF4444",
+  text:       "#F0F0F8",
+  textSub:    "#8888A8",
+  textMuted:  "#4C4C64",
+  font:       "'Inter',-apple-system,BlinkMacSystemFont,sans-serif",
+};
+
+const PHP = 58.3;
+function phpOf(u) { return (parseFloat(u) * PHP).toLocaleString("en-PH", { minimumFractionDigits: 2 }); }
+
+// ── Primitives ─────────────────────────────────────────────────────────────────
+function useHover() {
+  const [h, setH] = useState(false);
+  return [h, { onMouseEnter: () => setH(true), onMouseLeave: () => setH(false) }];
+}
+
+function Btn({ variant = "coral", size = "md", children, onClick, disabled, fullWidth, style: sx = {} }) {
+  const [h, hov] = useHover();
+  const dis = !!disabled;
+  const pad = { sm: "8px 18px", md: "11px 22px", lg: "14px 28px", xl: "17px 36px" }[size] || "11px 22px";
+  const fs  = { sm: "12.5px",  md: "13.5px",    lg: "15px",     xl: "16.5px"    }[size] || "13.5px";
+  const rad = { sm: "9px",     md: "11px",       lg: "13px",     xl: "14px"      }[size] || "11px";
+
+  const bg = {
+    coral:  dis ? "#2A1508" : h ? "linear-gradient(135deg,#FF7C48,#D9521A)" : "linear-gradient(135deg,#FF6B35,#D9521A)",
+    blue:   h ? "rgba(59,130,246,.14)" : "transparent",
+    red:    h ? "rgba(239,68,68,.12)"  : "transparent",
+    ghost:  h ? "rgba(255,107,53,.08)" : "transparent",
+    subtle: h ? C.card : C.elevated,
+  }[variant];
+  const col = {
+    coral: dis ? "#6B3820" : "#fff",
+    blue:  C.blue, red: "#F87171", ghost: h ? C.coral : C.textSub, subtle: C.text,
+  }[variant];
+  const bdr = {
+    coral:  "none",
+    blue:   `1.5px solid ${h ? C.blue : "rgba(59,130,246,.45)"}`,
+    red:    `1.5px solid ${h ? "rgba(239,68,68,.5)" : "rgba(239,68,68,.3)"}`,
+    ghost:  `1px solid ${h ? "rgba(255,107,53,.3)" : C.border}`,
+    subtle: `1px solid ${h ? C.borderLit : C.border}`,
+  }[variant];
+  const shd = {
+    coral: dis ? "none" : h ? "0 10px 36px rgba(255,107,53,.48),0 0 0 1px rgba(255,107,53,.32)" : "0 5px 20px rgba(255,107,53,.3),0 0 0 1px rgba(255,107,53,.2)",
+    blue:  h ? "0 4px 16px rgba(59,130,246,.2)" : "none",
+    red:   "none", ghost: "none", subtle: "none",
+  }[variant];
+
+  return (
+    <button onClick={dis ? undefined : onClick} {...(dis ? {} : hov)} style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+      fontFamily: C.font, fontWeight: 700, cursor: dis ? "not-allowed" : "pointer",
+      transition: "all .17s cubic-bezier(.4,0,.2,1)",
+      transform: !dis && h ? "translateY(-1px)" : "none",
+      width: fullWidth ? "100%" : "auto",
+      padding: pad, fontSize: fs, borderRadius: rad,
+      background: bg, color: col, border: bdr, boxShadow: shd,
+      letterSpacing: "-.01em", whiteSpace: "nowrap",
+      ...sx,
+    }}>{children}</button>
+  );
+}
+
+function StatusPill({ status }) {
+  const map = {
+    "In Progress":   { bg: "rgba(59,130,246,.14)", bd: "rgba(59,130,246,.35)", tx: "#60A5FA", dot: C.blue },
+    "Funded":        { bg: "rgba(16,185,129,.14)", bd: "rgba(16,185,129,.35)", tx: "#34D399", dot: C.green },
+    "Delivered":     { bg: "rgba(255,107,53,.14)", bd: "rgba(255,107,53,.35)", tx: "#FF8C5A", dot: C.coral },
+    "Approved":      { bg: "rgba(16,185,129,.14)", bd: "rgba(16,185,129,.35)", tx: "#34D399", dot: C.green },
+    "Pending":       { bg: "rgba(76,76,100,.25)",  bd: "rgba(76,76,100,.4)",   tx: C.textMuted, dot: C.textMuted },
+    "Awaiting":      { bg: "rgba(245,158,11,.14)", bd: "rgba(245,158,11,.35)", tx: "#FCD34D", dot: C.amber },
+    "Disputed":      { bg: "rgba(239,68,68,.14)",  bd: "rgba(239,68,68,.35)",  tx: "#F87171", dot: C.red },
+  };
+  const s = map[status] || map["Pending"];
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "4px 12px", borderRadius: "100px", fontSize: 12, fontWeight: 700,
+      background: s.bg, border: `1px solid ${s.bd}`, color: s.tx,
+    }}>
+      <span style={{
+        width: 6, height: 6, borderRadius: "50%", background: s.dot,
+        boxShadow: `0 0 6px ${s.dot}`, display: "inline-block",
+        animation: status === "In Progress" ? "pulse-dot 2s ease-in-out infinite" : "none",
+      }} />
+      {status}
+    </span>
+  );
+}
+
+function GlassCard({ children, glow = C.coral, style: sx = {}, hover = true }) {
+  const [h, hov] = useHover();
+  const active = hover && h;
+  return (
+    <div {...(hover ? hov : {})} style={{
+      background: "linear-gradient(145deg,rgba(26,26,38,.97),rgba(19,19,29,.97))",
+      backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+      border: `1px solid ${active ? glow + "50" : C.border}`,
+      borderRadius: 18,
+      boxShadow: active
+        ? `0 0 0 1px ${glow}15, 0 20px 60px rgba(0,0,0,.55), 0 0 40px ${glow}10`
+        : "0 6px 28px rgba(0,0,0,.4)",
+      transform: active ? "translateY(-2px)" : "none",
+      transition: "all .24s cubic-bezier(.4,0,.2,1)",
+      position: "relative", overflow: "hidden",
+      ...sx,
+    }}>
+      <div style={{
+        position: "absolute", top: 0, left: "20%", right: "20%", height: "1px",
+        background: `linear-gradient(90deg,transparent,${glow}35,transparent)`,
+        opacity: active ? 1 : 0, transition: "opacity .24s",
+      }} />
+      {children}
+    </div>
+  );
+}
+
+// ── Auto-release countdown ──────────────────────────────────────────────────
+function useCountdown(initSecs) {
+  const [secs, setSecs] = useState(initSecs);
+  useEffect(() => {
+    const t = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  const pad = n => String(n).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+// ── Milestone stepper data ─────────────────────────────────────────────────
+const MILESTONES = [
+  { id: 1, name: "Wireframes & Sitemap",  amount: 400,  status: "Approved",    action: null },
+  { id: 2, name: "UI Design (All Pages)", amount: 800,  status: "Delivered",   action: "review" },
+  { id: 3, name: "Responsive CSS Build",  amount: 600,  status: "In Progress", action: null },
+  { id: 4, name: "Final Handoff & QA",    amount: 400,  status: "Pending",     action: null },
+];
+
+const TOTAL_USDC  = 2200;
+const PLATFORM_FEE = TOTAL_USDC * 0.025;
+const MIN_GUARANTEE_PCT = 65;
+const MIN_GUARANTEE_USDC = TOTAL_USDC * (MIN_GUARANTEE_PCT / 100);
+
+// ── Delivery file mock ──────────────────────────────────────────────────────
+const DELIVERY = {
+  name:      "ui-design-all-pages-v2.zip",
+  hash:      "0xA4f3...c9B2",
+  size:      "24.7 MB",
+  timestamp: "May 18, 2025 · 3:41 PM",
+  hasFile:   true,
+};
+
+// ── COMPONENTS ─────────────────────────────────────────────────────────────
+
+// ── Top bar ─────────────────────────────────────────────────────────────────
+function TopBar() {
+  const [h, hov] = useHover();
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
+      <button {...hov} style={{
+        display: "flex", alignItems: "center", gap: 7,
+        background: h ? C.elevated : "transparent",
+        border: `1px solid ${h ? C.borderLit : C.border}`,
+        borderRadius: 10, padding: "8px 14px",
+        color: h ? C.text : C.textSub, fontSize: 13, fontWeight: 600,
+        cursor: "pointer", fontFamily: C.font,
+        transition: "all .15s ease",
+      }}>
+        ← Back
+      </button>
+
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 3 }}>
+          Contract #PGL-4821
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <h1 style={{ fontSize: "clamp(20px,3vw,26px)", fontWeight: 900, letterSpacing: "-.04em", color: C.text }}>
+            Website Design Escrow
+          </h1>
+          <StatusPill status="In Progress" />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.green, boxShadow: `0 0 8px ${C.green}`, animation: "pulse-dot 2s ease-in-out infinite" }} />
+        <span style={{ fontSize: 12.5, color: C.textSub, fontWeight: 600 }}>Live on Stellar</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Escrow Balance Card ──────────────────────────────────────────────────────
+function BalanceCard() {
+  const funded   = MILESTONES.filter(m => m.status === "Approved").reduce((a, m) => a + m.amount, 0);
+  const inFlight = MILESTONES.filter(m => m.status !== "Approved" && m.status !== "Pending").reduce((a, m) => a + m.amount, 0);
+  const pending  = MILESTONES.filter(m => m.status === "Pending").reduce((a, m) => a + m.amount, 0);
+
+  const BarSeg = ({ pct, color, glow }) => (
+    <div style={{ flex: pct, minWidth: 4, height: "100%", background: color, boxShadow: `0 0 8px ${glow || color}` }} />
+  );
+
+  return (
+    <GlassCard glow={C.coral} hover={false} style={{ padding: "28px 28px 24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
+        {/* Main balance */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 6 }}>Total Locked in Escrow</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            <span style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-.05em", background: "linear-gradient(135deg,#FF6B35,#FF9A6C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              ${TOTAL_USDC.toLocaleString()}
+            </span>
+            <span style={{ fontSize: 16, color: C.textMuted, fontWeight: 600 }}>USDC</span>
+          </div>
+          <div style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>≈ ₱{phpOf(TOTAL_USDC)} PHP</div>
+        </div>
+
+        {/* Guaranteed floor highlight */}
+        <div style={{
+          background: `linear-gradient(135deg,rgba(255,107,53,.12),rgba(255,107,53,.05))`,
+          border: `1px solid rgba(255,107,53,.3)`, borderRadius: 14, padding: "14px 18px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+            <span style={{ fontSize: 14 }}>🛡️</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, letterSpacing: ".05em", textTransform: "uppercase" }}>Guaranteed Floor</span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-.04em", color: C.coral }}>${MIN_GUARANTEE_USDC.toLocaleString()}</div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{MIN_GUARANTEE_PCT}% · freelancer guaranteed</div>
+        </div>
+      </div>
+
+      {/* Stacked progress bar */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", height: 8, borderRadius: "100px", overflow: "hidden", gap: 2, background: "rgba(255,255,255,.04)" }}>
+          <BarSeg pct={funded}   color={C.green}  />
+          <BarSeg pct={inFlight} color={C.coral}  />
+          <BarSeg pct={pending}  color={C.border} />
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+        {[
+          { color: C.green, label: "Released",    value: `$${funded}` },
+          { color: C.coral, label: "In Escrow",   value: `$${inFlight}` },
+          { color: C.textMuted, label: "Upcoming", value: `$${pending}` },
+        ].map(({ color, label, value }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, boxShadow: color !== C.textMuted ? `0 0 6px ${color}` : "none" }} />
+            <span style={{ fontSize: 12.5, color: C.textMuted }}>{label} </span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: C.textSub }}>{value} USDC</span>
+          </div>
+        ))}
+        <div style={{ marginLeft: "auto", fontSize: 12, color: C.textMuted }}>
+          Platform fee: ${PLATFORM_FEE.toFixed(2)} USDC (2.5%)
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
+// ── Vertical Milestone Stepper ──────────────────────────────────────────────
+function MilestoneStepper() {
+  const [approving, setApproving] = useState(null);
+
+  const stepIcon = (status) => {
+    if (status === "Approved") return { icon: "✓", bg: C.green, shadow: C.green };
+    if (status === "Delivered") return { icon: "📦", bg: C.coral, shadow: C.coral };
+    if (status === "In Progress") return { icon: "⚡", bg: C.blue, shadow: C.blue };
+    return { icon: "○", bg: C.card, shadow: "transparent" };
+  };
+
+  return (
+    <GlassCard hover={false} glow={C.blue} style={{ padding: "24px 28px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: "-.02em" }}>Milestone Tracker</div>
+          <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>4 milestones · 2 of 4 complete</div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.green, boxShadow: `0 0 6px ${C.green}` }} />
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: C.green }}>On Track</span>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+        {MILESTONES.map((ms, i) => {
+          const { icon, bg, shadow } = stepIcon(ms.status);
+          const isLast = i === MILESTONES.length - 1;
+          const active = ms.status === "In Progress" || ms.status === "Delivered";
+
+          return (
+            <div key={ms.id} style={{ display: "flex", gap: 16, position: "relative" }}>
+              {/* Left column: icon + line */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 40, flexShrink: 0 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+                  background: ms.status === "Pending" ? C.elevated : `linear-gradient(135deg,${bg},${bg}CC)`,
+                  border: `2px solid ${ms.status === "Pending" ? C.border : bg}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: ms.status === "Approved" ? 16 : 17, fontWeight: 800, color: ms.status === "Pending" ? C.textMuted : "#fff",
+                  boxShadow: ms.status !== "Pending" ? `0 0 20px ${shadow}50, 0 0 0 4px ${shadow}15` : "none",
+                  transition: "all .3s",
+                  zIndex: 1, position: "relative",
+                }}>{icon}</div>
+                {!isLast && (
+                  <div style={{
+                    width: 2, flex: 1, minHeight: 24,
+                    background: ms.status === "Approved"
+                      ? `linear-gradient(180deg,${C.green},${C.border})`
+                      : `linear-gradient(180deg,${C.border},${C.border})`,
+                    marginTop: 4, marginBottom: 4,
+                    transition: "background .3s",
+                  }} />
+                )}
+              </div>
+
+              {/* Right: content */}
+              <div style={{
+                flex: 1, paddingBottom: isLast ? 0 : 20,
+                paddingTop: 8,
+              }}>
+                <div style={{
+                  background: active ? `linear-gradient(135deg,rgba(26,26,40,.98),rgba(20,20,32,.98))` : "transparent",
+                  border: active ? `1px solid ${ms.status === "Delivered" ? "rgba(255,107,53,.35)" : "rgba(59,130,246,.3)"}` : "none",
+                  borderRadius: 14, padding: active ? "14px 18px" : "0 4px",
+                  transition: "all .2s",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: active ? 10 : 4, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: ms.status === "Pending" ? C.textMuted : C.text, marginBottom: 3 }}>{ms.name}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <StatusPill status={ms.status} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: ms.status === "Pending" ? C.textMuted : C.text }}>
+                          ${ms.amount} USDC
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Per-milestone action */}
+                    {ms.action === "review" && (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {approving !== ms.id ? (
+                          <Btn variant="coral" size="sm" onClick={() => setApproving(ms.id)}>
+                            ✓ Approve ${ms.amount}
+                          </Btn>
+                        ) : (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ fontSize: 12.5, color: C.textSub }}>Confirm release?</span>
+                            <Btn variant="coral" size="sm" onClick={() => setApproving(null)}>Yes, Release</Btn>
+                            <Btn variant="ghost" size="sm" onClick={() => setApproving(null)}>Cancel</Btn>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {ms.status === "Approved" && (
+                      <span style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>Released ✓</span>
+                    )}
+                  </div>
+
+                  {ms.status === "In Progress" && (
+                    <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.55 }}>
+                      Freelancer is actively working on this milestone. You'll be notified when it's delivered.
+                    </div>
+                  )}
+                  {ms.status === "Delivered" && (
+                    <div style={{ fontSize: 12.5, color: C.textSub, lineHeight: 1.55 }}>
+                      Files submitted — review the delivery zone below and approve or request changes.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </GlassCard>
+  );
+}
+
+// ── Delivery Zone ────────────────────────────────────────────────────────────
+function DeliveryZone({ delivered = true }) {
+  const [tab, setTab] = useState("files");
+
+  if (!delivered) {
+    return (
+      <GlassCard hover={false} glow={C.border} style={{ padding: 0 }}>
+        <div style={{ padding: "22px 24px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text, letterSpacing: "-.02em" }}>Delivery Zone</div>
+          <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>Files and assets submitted by the freelancer will appear here.</div>
+        </div>
+        <div style={{
+          margin: "28px 24px 28px", border: `1.5px dashed ${C.border}`,
+          borderRadius: 14, padding: "48px 24px", textAlign: "center",
+        }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.textMuted, marginBottom: 6 }}>Awaiting freelancer submission…</div>
+          <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6 }}>
+            When Ana submits her work, you'll get an instant notification and the file will appear here for review.
+          </div>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  const tabs = ["files", "activity"];
+
+  return (
+    <GlassCard hover={false} glow={C.coral} style={{ padding: 0, overflow: "hidden" }}>
+      {/* Header + tabs */}
+      <div style={{ padding: "22px 24px 0", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text, letterSpacing: "-.02em" }}>Delivery Zone</div>
+            <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>Milestone 2 — UI Design · Submitted May 18, 2025</div>
+          </div>
+          <StatusPill status="Delivered" />
+        </div>
+        <div style={{ display: "flex", gap: 2 }}>
+          {tabs.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              padding: "8px 16px", borderRadius: "10px 10px 0 0",
+              background: tab === t ? C.elevated : "transparent",
+              border: "none", cursor: "pointer", fontFamily: C.font,
+              fontSize: 13, fontWeight: tab === t ? 700 : 500,
+              color: tab === t ? C.text : C.textMuted,
+              borderBottom: tab === t ? `2px solid ${C.coral}` : "2px solid transparent",
+              transition: "all .15s",
+              textTransform: "capitalize",
+            }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: "22px 24px" }}>
+        {tab === "files" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Preview thumbnail */}
+            <div style={{
+              height: 160, borderRadius: 14, overflow: "hidden",
+              background: "linear-gradient(135deg,rgba(255,107,53,.08),rgba(59,130,246,.06))",
+              border: `1px solid ${C.border}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              position: "relative",
+            }}>
+              {/* Mock browser UI */}
+              <div style={{ width: "80%", background: C.elevated, borderRadius: 10, padding: "10px 14px", border: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", gap: 5, marginBottom: 8 }}>
+                  {[C.red, C.amber, C.green].map(c => <div key={c} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />)}
+                </div>
+                <div style={{ height: 8, background: "rgba(255,255,255,.08)", borderRadius: 4, marginBottom: 6, width: "60%" }} />
+                <div style={{ height: 40, background: "rgba(255,107,53,.1)", borderRadius: 6, border: `1px solid rgba(255,107,53,.2)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 11, color: C.coral, fontWeight: 700 }}>Design Preview</span>
+                </div>
+              </div>
+              <div style={{ position: "absolute", top: 10, right: 12, fontSize: 11, color: C.textMuted, background: "rgba(0,0,0,.4)", padding: "3px 8px", borderRadius: 6, backdropFilter: "blur(4px)" }}>
+                Preview Placeholder
+              </div>
+            </div>
+
+            {/* File details */}
+            <div style={{ background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 13, padding: "14px 18px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 11, background: "rgba(255,107,53,.12)", border: "1px solid rgba(255,107,53,.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📦</div>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>{DELIVERY.name}</div>
+                    <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>{DELIVERY.size} · {DELIVERY.timestamp}</div>
+                  </div>
+                </div>
+                <Btn variant="subtle" size="sm">⬇ Download</Btn>
+              </div>
+
+              {/* Hash row */}
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.blue, boxShadow: `0 0 6px ${C.blue}` }} />
+                  <span style={{ fontSize: 11.5, color: C.textMuted }}>On-chain hash:</span>
+                </div>
+                <code style={{ fontSize: 12, color: C.blue, fontFamily: "monospace", background: "rgba(59,130,246,.08)", padding: "3px 9px", borderRadius: 6, border: "1px solid rgba(59,130,246,.2)" }}>
+                  {DELIVERY.hash}
+                </code>
+                <span style={{ fontSize: 11.5, color: C.textMuted, marginLeft: "auto" }}>⛓️ Stellar Network</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "activity" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[
+              { icon: "📦", color: C.coral, label: "Files submitted by Ana Kalaw",         time: "May 18 · 3:41 PM" },
+              { icon: "💬", color: C.blue,  label: "Message: "Ready for your review!"",    time: "May 18 · 3:42 PM" },
+              { icon: "🔔", color: C.amber, label: "Auto-release timer started (48 hrs)",  time: "May 18 · 3:41 PM" },
+              { icon: "🔒", color: C.green, label: "Escrow funded by you",                 time: "May 12 · 11:00 AM" },
+            ].map(({ icon, color, label, time }) => (
+              <div key={label} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: `${color}14`, border: `1px solid ${color}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>{icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, color: C.text, fontWeight: 500 }}>{label}</div>
+                  <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>{time}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </GlassCard>
+  );
+}
+
+// ── Action Sidebar ──────────────────────────────────────────────────────────
+function ActionSidebar() {
+  const countdown = useCountdown(47 * 3600 + 32 * 60 + 10);
+  const [showDispute, setShowDispute] = useState(false);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Primary action card */}
+      <GlassCard glow={C.coral} style={{ padding: "22px 20px" }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text, marginBottom: 4, letterSpacing: "-.02em" }}>Actions</div>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>Milestone 2 is awaiting your review</div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Primary CTA */}
+          <Btn variant="coral" size="lg" fullWidth>
+            ✓ Approve & Release $800
+          </Btn>
+
+          {/* Secondary */}
+          <Btn variant="blue" size="md" fullWidth>
+            ↩ Request Changes
+          </Btn>
+
+          {/* Destructive */}
+          {!showDispute ? (
+            <button onClick={() => setShowDispute(true)} style={{
+              background: "transparent", border: `1px solid rgba(239,68,68,.25)`,
+              borderRadius: 11, padding: "9px 16px", color: "rgba(239,68,68,.7)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: C.font,
+              transition: "all .15s",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}
+              onMouseEnter={e => { e.target.style.background = "rgba(239,68,68,.08)"; e.target.style.borderColor = "rgba(239,68,68,.45)"; e.target.style.color = "#F87171"; }}
+              onMouseLeave={e => { e.target.style.background = "transparent"; e.target.style.borderColor = "rgba(239,68,68,.25)"; e.target.style.color = "rgba(239,68,68,.7)"; }}
+            >
+              ⚖️ Raise a Dispute
+            </button>
+          ) : (
+            <div style={{ background: "rgba(239,68,68,.07)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, padding: "14px 16px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#F87171", marginBottom: 6 }}>Raise a Dispute?</div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.55, marginBottom: 12 }}>
+                A neutral arbitrator will review both sides. The guaranteed floor of ${MIN_GUARANTEE_USDC} USDC is protected for the freelancer.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn variant="red" size="sm" onClick={() => setShowDispute(false)} style={{ flex: 1, justifyContent: "center" }}>Confirm Dispute</Btn>
+                <Btn variant="ghost" size="sm" onClick={() => setShowDispute(false)}>Cancel</Btn>
+              </div>
+            </div>
+          )}
+        </div>
+      </GlassCard>
+
+      {/* Auto-release countdown */}
+      <div style={{
+        background: "linear-gradient(135deg,rgba(245,158,11,.1),rgba(245,158,11,.04))",
+        border: `1px solid rgba(245,158,11,.3)`, borderRadius: 14, padding: "16px 18px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 16 }}>⏱️</span>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: C.amber }}>Auto-Release Active</span>
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-.05em", color: C.text, fontFamily: "monospace", marginBottom: 6 }}>
+          {countdown}
+        </div>
+        <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.55 }}>
+          Payment releases automatically if no action is taken. Approve or request changes before then.
+        </div>
+        <button style={{
+          marginTop: 12, background: "transparent", border: "none",
+          color: C.amber, fontSize: 12, fontWeight: 600, cursor: "pointer",
+          fontFamily: C.font, padding: 0, textDecoration: "underline",
+          textDecorationColor: "rgba(245,158,11,.4)",
+        }}>
+          Disable auto-release
+        </button>
+      </div>
+
+      {/* Quick stats */}
+      <GlassCard glow={C.border} hover={false} style={{ padding: "18px 20px" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 14 }}>Contract Info</div>
+        {[
+          { label: "Started",        value: "May 12, 2025" },
+          { label: "Deadline",       value: "Jun 2, 2025" },
+          { label: "Days remaining", value: "15 days" },
+          { label: "Payment type",   value: "Milestone-based" },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid rgba(38,38,58,.5)` }}>
+            <span style={{ fontSize: 12.5, color: C.textMuted }}>{label}</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: C.textSub }}>{value}</span>
+          </div>
+        ))}
+      </GlassCard>
+
+    </div>
+  );
+}
+
+// ── Freelancer Card ──────────────────────────────────────────────────────────
+function FreelancerCard() {
+  const badges = [
+    { icon: "⭐", label: "Top Rated",    color: C.amber  },
+    { icon: "✅", label: "ID Verified",  color: C.green  },
+    { icon: "⚡", label: "Fast Deliver", color: C.blue   },
+    { icon: "🛡️", label: "0 Disputes",  color: C.purple },
+  ];
+
+  return (
+    <GlassCard glow={C.purple} style={{ padding: "20px 20px" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Freelancer</div>
+
+      {/* Profile row */}
+      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 16 }}>
+        {/* Avatar */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: "50%",
+            background: "linear-gradient(135deg,rgba(139,92,246,.3),rgba(139,92,246,.1))",
+            border: "2px solid rgba(139,92,246,.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 20, fontWeight: 800, color: C.purple,
+          }}>AK</div>
+          <div style={{
+            position: "absolute", bottom: 1, right: 1,
+            width: 12, height: 12, borderRadius: "50%",
+            background: C.green, border: `2px solid ${C.surface}`,
+            boxShadow: `0 0 6px ${C.green}`,
+          }} />
+        </div>
+
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text, letterSpacing: "-.02em" }}>Ana Kalaw</div>
+          <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 5 }}>UI/UX Designer · Quezon City</div>
+          {/* Stars */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ display: "flex", gap: 2 }}>
+              {[1,2,3,4,5].map(s => (
+                <span key={s} style={{ fontSize: 13, color: s <= 4 ? C.amber : "rgba(245,158,11,.3)" }}>★</span>
+              ))}
+            </div>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>4.9</span>
+            <span style={{ fontSize: 12, color: C.textMuted }}>(38 reviews)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Badges */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 16 }}>
+        {badges.map(({ icon, label, color }) => (
+          <div key={label} style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            background: `${color}12`, border: `1px solid ${color}30`,
+            borderRadius: "100px", padding: "4px 10px",
+            fontSize: 11.5, fontWeight: 700, color,
+          }}>
+            {icon} {label}
+          </div>
+        ))}
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "flex", gap: 0, background: C.elevated, borderRadius: 12, overflow: "hidden", border: `1px solid ${C.border}` }}>
+        {[
+          { label: "Jobs Done", value: "38" },
+          { label: "On-Time",   value: "97%" },
+          { label: "Rehire",    value: "84%" },
+        ].map(({ label, value }, i) => (
+          <div key={label} style={{
+            flex: 1, textAlign: "center", padding: "12px 8px",
+            borderRight: i < 2 ? `1px solid ${C.border}` : "none",
+          }}>
+            <div style={{ fontSize: 17, fontWeight: 900, color: C.text, letterSpacing: "-.03em" }}>{value}</div>
+            <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <Btn variant="ghost" size="sm" fullWidth>💬 Message Ana</Btn>
+      </div>
+    </GlassCard>
+  );
+}
+
+// ── Root Page ────────────────────────────────────────────────────────────────
+export default function PangolinEscrowDetail() {
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body, #root { min-height: 100%; }
+        body {
+          font-family: 'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+          background: #0D0D0F; color: #F0F0F8;
+          -webkit-font-smoothing: antialiased;
+        }
+        @keyframes pulse-dot {
+          0%,100% { opacity:1; transform:scale(1); }
+          50%      { opacity:.45; transform:scale(.7); }
+        }
+        @keyframes fade-up {
+          from { opacity:0; transform:translateY(14px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #0D0D0F; }
+        ::-webkit-scrollbar-thumb { background: #26263A; border-radius: 3px; }
+      `}</style>
+
+      <div style={{
+        minHeight: "100vh",
+        background: `
+          radial-gradient(ellipse 65% 45% at 10% 10%, rgba(255,107,53,.06) 0%, transparent 55%),
+          radial-gradient(ellipse 55% 40% at 85% 80%, rgba(59,130,246,.05) 0%, transparent 55%),
+          #0D0D0F`,
+        overflowX: "hidden",
+      }}>
+        {/* Grid texture */}
+        <div style={{
+          position: "fixed", inset: 0, opacity: .018, pointerEvents: "none",
+          backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)",
+          backgroundSize: "44px 44px",
+        }} />
+
+        <div style={{ maxWidth: 1160, margin: "0 auto", padding: "32px 24px 80px", animation: "fade-up .35s ease" }}>
+
+          <TopBar />
+
+          {/* Balance card — full width */}
+          <div style={{ marginBottom: 24 }}>
+            <BalanceCard />
+          </div>
+
+          {/* Two-column layout: left (main) + right (sidebar) */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "start" }}>
+
+            {/* ── Left column ── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <MilestoneStepper />
+              <DeliveryZone delivered={true} />
+            </div>
+
+            {/* ── Right column ── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <ActionSidebar />
+              <FreelancerCard />
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </>
+  );
+}
