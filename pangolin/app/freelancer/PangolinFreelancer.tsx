@@ -129,6 +129,7 @@ function Avatar({ initials, size = 44, color = C.coral, emoji }) {
 const DEFAULT_TOTAL_USDC = 1600;
 const DEFAULT_MIN_PCT = 60;
 const DEFAULT_MIN_USDC = DEFAULT_TOTAL_USDC * DEFAULT_MIN_PCT / 100;
+const DEFAULT_MILESTONES_INVITE = [];
 
 function ScreenA({ onAccept, inviteData }) {
   const [declining, setDeclining] = useState(false);
