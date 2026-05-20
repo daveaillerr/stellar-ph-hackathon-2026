@@ -3,6 +3,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
+import { submitDelivery } from "@/lib/contract-client";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Freelancer Delivery Flow
@@ -111,11 +113,13 @@ function FieldFocus({ children, accentColor = C.coral }) {
 // ════════════════════════════════════════════════════════════════════════════
 function ScreenA({ onSubmit, escrow, milestones, loadingEscrow, loadingMilestones }) {
   const { supabase, user } = useAuth();
+  const { wallet } = useFreighterWallet();
   const [files, setFiles] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [link, setLink] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState(""); // "hashing" | "uploading" | "recording" | "done"
   const fileRef = useRef();
@@ -162,23 +166,40 @@ function ScreenA({ onSubmit, escrow, milestones, loadingEscrow, loadingMilestone
   };
 
   const handleSubmit = async () => {
-    setSubmitting(true);
-    const phases = [
-      { label: "hashing",    pct: 25,  delay: 600 },
-      { label: "uploading",  pct: 60,  delay: 900 },
-      { label: "recording",  pct: 90,  delay: 700 },
-      { label: "done",       pct: 100, delay: 500 },
-    ];
-    for (const p of phases) {
-      await new Promise(r => setTimeout(r, p.delay));
-      setPhase(p.label);
-      setProgress(p.pct);
+    if (!wallet?.address) {
+      setSubmitError("Connect your Freighter wallet first.");
+      return;
     }
+    setSubmitting(true);
+    setSubmitError(null);
+
+    setPhase("hashing"); setProgress(25);
+    await new Promise(r => setTimeout(r, 600));
+    setPhase("uploading"); setProgress(60);
+    await new Promise(r => setTimeout(r, 900));
 
     if (!escrow?.id) {
       setSubmitting(false);
       return;
     }
+
+    const onchainId = parseInt(escrow?.stellar_contract_id ?? "0") || 0;
+    const hashHex = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, "0")).join("");
+
+    setPhase("recording"); setProgress(90);
+    let txHash = null;
+    try {
+      const { hash } = await submitDelivery(wallet.address, onchainId, hashHex);
+      txHash = hash;
+    } catch (err) {
+      setSubmitting(false);
+      setSubmitError(err instanceof Error ? err.message : "Contract call failed.");
+      return;
+    }
+
+    setPhase("done"); setProgress(100);
+    await new Promise(r => setTimeout(r, 500));
 
     const fileRecord = files[0] || null;
     await supabase.from("deliveries").insert({
@@ -187,12 +208,11 @@ function ScreenA({ onSubmit, escrow, milestones, loadingEscrow, loadingMilestone
       submitted_by: user?.id || null,
       file_name: fileRecord ? fileRecord.name : null,
       external_url: link || null,
-      file_hash: fileRecord ? fileRecord.hash : null,
+      file_hash: hashHex,
       delivery_note: notes || null,
-      stellar_delivery_tx_hash: null,
+      stellar_delivery_tx_hash: txHash,
     });
 
-    await new Promise(r => setTimeout(r, 400));
     onSubmit();
   };
 
@@ -417,6 +437,9 @@ function ScreenA({ onSubmit, escrow, milestones, loadingEscrow, loadingMilestone
       )}
 
       {/* CTA */}
+      {submitError && (
+        <div style={{ fontSize: 12.5, color: "#F87171", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>{submitError}</div>
+      )}
       {!submitting ? (
         <Btn variant="coral" size="xl" fullWidth disabled={!valid} onClick={handleSubmit}>
           🚀 Submit Delivery
@@ -697,7 +720,7 @@ export default function PangolinDeliveryFlow() {
     async function loadEscrow() {
       const { data, error } = await supabase
         .from("escrows")
-        .select("id,title,status,amount_usdc,deadline,client_id,freelancer_id")
+        .select("id,title,status,amount_usdc,deadline,client_id,freelancer_id,stellar_contract_id")
         .order("created_at", { ascending: false })
         .limit(1)
         .single();

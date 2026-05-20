@@ -3,6 +3,8 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
+import { confirmFreelancer } from "@/lib/contract-client";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Freelancer Screens (A: Invite Landing · B: Dashboard)
@@ -131,6 +133,10 @@ const DEFAULT_MIN_USDC = DEFAULT_TOTAL_USDC * DEFAULT_MIN_PCT / 100;
 function ScreenA({ onAccept, inviteData }) {
   const [declining, setDeclining] = useState(false);
   const [accepted,  setAccepted]  = useState(false);
+  const [accepting,  setAccepting]  = useState(false);
+  const [acceptError, setAcceptError] = useState(null);
+  const { wallet } = useFreighterWallet();
+  const escrowOnchainId = inviteData?.escrowOnchainId ?? 0;
   const {
     clientName = "Client",
     projectTitle = "Website Redesign — Full Stack",
@@ -148,6 +154,23 @@ function ScreenA({ onAccept, inviteData }) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const handleAccept = async () => {
+    if (!wallet?.address) {
+      setAcceptError("Connect your Freighter wallet first.");
+      return;
+    }
+    setAccepting(true);
+    setAcceptError(null);
+    try {
+      await confirmFreelancer(wallet.address, escrowOnchainId);
+      setAccepted(true);
+    } catch (err) {
+      setAcceptError(err instanceof Error ? err.message : "Transaction failed.");
+    } finally {
+      setAccepting(false);
+    }
+  };
 
   if (accepted) {
     return (
@@ -266,9 +289,12 @@ function ScreenA({ onAccept, inviteData }) {
 
       {/* CTAs */}
       <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
-        <Btn variant="coral" size="xl" fullWidth onClick={() => setAccepted(true)}>
-          🔗 Accept &amp; Connect Wallet
+        <Btn variant="coral" size="xl" fullWidth onClick={handleAccept} disabled={accepting}>
+          {accepting ? "⏳ Signing…" : "🔗 Accept & Connect Wallet"}
         </Btn>
+        {acceptError && (
+          <div style={{ fontSize: 12.5, color: "#F87171", textAlign: "center", marginTop: 4 }}>{acceptError}</div>
+        )}
 
         {!declining ? (
           <Btn variant="ghost" size="lg" fullWidth onClick={() => setDeclining(true)}>
@@ -777,7 +803,7 @@ export default function PangolinFreelancer() {
     async function loadInviteData() {
       const { data: escrow } = await supabase
         .from("escrows")
-        .select("id,title,category,amount_usdc,min_guarantee_pct,min_guarantee_usdc,deadline,client_id")
+        .select("id,title,category,amount_usdc,min_guarantee_pct,min_guarantee_usdc,deadline,client_id,stellar_contract_id")
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
@@ -808,6 +834,7 @@ export default function PangolinFreelancer() {
         minPct,
         minUsdc,
         clientCompletedEscrows: clientEscrowCount || 0,
+        escrowOnchainId: parseInt(escrow.stellar_contract_id ?? "0") || 0,
       });
     }
     loadInviteData();
