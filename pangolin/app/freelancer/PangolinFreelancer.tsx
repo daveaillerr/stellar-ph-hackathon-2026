@@ -142,7 +142,7 @@ function ScreenA({ onAccept, inviteData }) {
   const [accepted,  setAccepted]  = useState(false);
   const [accepting,  setAccepting]  = useState(false);
   const [acceptError, setAcceptError] = useState(null);
-  const { wallet } = useFreighterWallet();
+  const { wallet, connectWallet } = useFreighterWallet();
   const escrowOnchainId = inviteData?.escrowOnchainId ?? 0;
   const {
     clientName = "Client",
@@ -163,19 +163,20 @@ function ScreenA({ onAccept, inviteData }) {
     .toUpperCase();
 
   const handleAccept = async () => {
-    if (!wallet?.address) {
-      setAcceptError("Connect your Freighter wallet first.");
-      return;
-    }
     setAccepting(true);
     setAcceptError(null);
     try {
+      // Force-refresh Freighter to get the account currently active in the extension
+      const fresh = await connectWallet();
+      if (!fresh?.address) {
+        setAcceptError("Connect your Freighter wallet first.");
+        return;
+      }
       // Check on-chain status — skip confirm_freelancer if already Active or beyond
       const onchain = await getEscrow(escrowOnchainId);
       if (onchain.status === "FUNDED" || onchain.status === "CREATED") {
-        await confirmFreelancer(wallet.address, escrowOnchainId);
+        await confirmFreelancer(fresh.address, escrowOnchainId);
       }
-      // Already Active/Delivered/Completed → treat as accepted, go to dashboard
       setAccepted(true);
     } catch (err) {
       setAcceptError(err instanceof Error ? err.message : "Transaction failed.");

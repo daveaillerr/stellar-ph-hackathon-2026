@@ -113,7 +113,7 @@ function FieldFocus({ children, accentColor = C.coral }) {
 // ════════════════════════════════════════════════════════════════════════════
 function ScreenA({ onSubmit, escrow, milestones, loadingEscrow, loadingMilestones }) {
   const { supabase, user } = useAuth();
-  const { wallet } = useFreighterWallet();
+  const { wallet, connectWallet } = useFreighterWallet();
   const [files, setFiles] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [link, setLink] = useState("");
@@ -166,12 +166,16 @@ function ScreenA({ onSubmit, escrow, milestones, loadingEscrow, loadingMilestone
   };
 
   const handleSubmit = async () => {
-    if (!wallet?.address) {
-      setSubmitError("Connect your Freighter wallet first.");
-      return;
-    }
     setSubmitting(true);
     setSubmitError(null);
+
+    // Force-refresh Freighter to pick up current active account
+    const fresh = await connectWallet();
+    if (!fresh?.address) {
+      setSubmitError("Connect your Freighter wallet first.");
+      setSubmitting(false);
+      return;
+    }
 
     setPhase("hashing"); setProgress(25);
     await new Promise(r => setTimeout(r, 600));
@@ -190,7 +194,7 @@ function ScreenA({ onSubmit, escrow, milestones, loadingEscrow, loadingMilestone
     setPhase("recording"); setProgress(90);
     let txHash = null;
     try {
-      const { hash } = await submitDelivery(wallet.address, onchainId, hashHex);
+      const { hash } = await submitDelivery(fresh.address, onchainId, hashHex);
       txHash = hash;
     } catch (err) {
       setSubmitting(false);
