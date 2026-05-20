@@ -6,6 +6,7 @@ import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
 import { createEscrow, fundEscrow } from "@/lib/contract-client";
 import { parseAmountToInt } from "@/lib/format";
 import { appConfig } from "@/lib/config";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Escrow Creation Wizard  (3-step)
@@ -718,6 +719,23 @@ export default function PangolinEscrowWizard() {
       );
       if (escrowId == null) throw new Error("Contract did not return an escrow ID. Check explorer and try again.");
       const { hash: fundHash } = await fundEscrow(wallet.address, escrowId);
+
+      // Persist to Supabase — best-effort (on-chain tx already confirmed)
+      await supabase.from("escrows").insert({
+        client_id: user?.id ?? null,
+        client_wallet: wallet.address,
+        freelancer_wallet: data.freelancerWallet || null,
+        title: data.title || "Untitled Escrow",
+        description: data.description || null,
+        amount_usdc: parseFloat(data.totalAmount || "0"),
+        min_guarantee_pct: data.minGuarantee ?? 40,
+        min_guarantee_usdc: parseFloat(data.totalAmount || "0") * ((data.minGuarantee ?? 40) / 100),
+        status: "funded",
+        deadline: data.deadline || null,
+        stellar_contract_id: String(escrowId),
+        stellar_funding_tx_hash: fundHash,
+      });
+
       setTxHash(fundHash);
       setDone(true);
     } catch (err) {

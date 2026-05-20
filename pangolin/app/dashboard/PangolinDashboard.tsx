@@ -1,9 +1,10 @@
 // @ts-nocheck
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
 import { shortenAddress } from "@/lib/format";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Client Dashboard

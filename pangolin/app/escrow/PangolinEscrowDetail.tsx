@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 
 import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
 import { approveRelease, triggerDispute } from "@/lib/contract-client";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Escrow Detail Page (Client View)
@@ -35,7 +36,6 @@ function go(path) {
   window.location.href = path;
 }
 
-const ESCROW_ID = 0; // update when dynamic routing / Supabase lookup is wired
 
 const PHP = 58.3;
 function phpOf(u) { return (parseFloat(u) * PHP).toLocaleString("en-PH", { minimumFractionDigits: 2 }); }
@@ -550,6 +550,7 @@ function DeliveryZone({ delivered = true, delivery = DELIVERY, activities = [] }
 // ── Action Sidebar ──────────────────────────────────────────────────────────
 function ActionSidebar({ escrow, reviewAmount }) {
   const countdown = useCountdown(47 * 3600 + 32 * 60 + 10);
+  const onchainEscrowId = parseInt(escrow?.stellar_contract_id ?? "0") || 0;
   const [showDispute, setShowDispute] = useState(false);
   const [approveLoading, setApproveLoading] = useState(false);
   const [approveError, setApproveError] = useState(null);
@@ -562,7 +563,7 @@ function ActionSidebar({ escrow, reviewAmount }) {
     if (!wallet?.address) { setApproveError("Connect Freighter wallet first."); return; }
     setApproveLoading(true); setApproveError(null);
     try {
-      const { hash } = await approveRelease(wallet.address, ESCROW_ID);
+      const { hash } = await approveRelease(wallet.address, onchainEscrowId);
       setApproveTxHash(hash);
     } catch (err) {
       setApproveError(err instanceof Error ? err.message : "Transaction failed.");
@@ -575,7 +576,7 @@ function ActionSidebar({ escrow, reviewAmount }) {
     if (!wallet?.address) { setDisputeError("Connect Freighter wallet first."); return; }
     setDisputeLoading(true); setDisputeError(null);
     try {
-      const { hash } = await triggerDispute(wallet.address, ESCROW_ID);
+      const { hash } = await triggerDispute(wallet.address, onchainEscrowId);
       go(`/dispute?tx=${hash}`);
     } catch (err) {
       setDisputeError(err instanceof Error ? err.message : "Transaction failed.");
