@@ -757,12 +757,28 @@ export default function PangolinEscrowWizard() {
 
         <div style={{ maxWidth: 640, margin: "0 auto", position: "relative", animation: "fade-up .35s ease" }}>
 
-          {/* Logo */}
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 36 }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, gap: 12 }}>
+            <button onClick={() => go("/dashboard")} style={{
+              display: "flex", alignItems: "center", gap: 7,
+              background: "transparent", border: `1px solid ${C.border}`,
+              borderRadius: 10, padding: "8px 14px",
+              color: C.textSub, fontSize: 13, fontWeight: 600,
+              cursor: "pointer", fontFamily: C.font,
+              transition: "all .15s ease", flexShrink: 0,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = C.elevated; e.currentTarget.style.borderColor = C.borderLight; e.currentTarget.style.color = C.text; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
+            >
+              ← Dashboard
+            </button>
+
             <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "linear-gradient(135deg,#1D1D28,#17171F)", border: `1px solid ${C.border}`, borderRadius: 14, padding: "10px 20px", boxShadow: "0 0 0 1px rgba(255,107,53,.08)" }}>
               <span style={{ fontSize: 22 }}>🐧</span>
               <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-.03em", background: "linear-gradient(135deg,#FF6B35,#FF9A6C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Pangolin</span>
             </div>
+
+            <div style={{ width: 120 }} />
           </div>
 
           {/* Header text */}
