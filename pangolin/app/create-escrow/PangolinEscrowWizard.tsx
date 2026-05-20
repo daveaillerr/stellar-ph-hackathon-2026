@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Escrow Creation Wizard  (3-step)
@@ -679,6 +679,7 @@ const INIT = {
 };
 
 export default function PangolinEscrowWizard() {
+  const { supabase, user } = useAuth();
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
   const [data, setData] = useState(INIT);
@@ -700,10 +701,21 @@ export default function PangolinEscrowWizard() {
       const platformFee = Number((amount * 0.025).toFixed(2));
       const minGuaranteeAmount = Number(((amount * minPct) / 100).toFixed(2));
 
+      let clientWallet = "";
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("wallet_address")
+          .eq("id", user.id)
+          .single();
+        clientWallet = profile?.wallet_address || "";
+      }
+
       const { data: escrow, error } = await supabase
         .from("escrows")
         .insert({
-          client_wallet: "demo-client-wallet",
+          client_id: user?.id || null,
+          client_wallet: clientWallet || `user-${user?.id || "unknown"}`,
           freelancer_wallet: data.freelancerWallet || null,
           title: data.title,
           category: data.category,

@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Client Dashboard
@@ -135,7 +135,7 @@ const NAV_ITEMS = [
   { id: "settings",   icon: "⚙️", label: "Settings" },
 ];
 
-function Sidebar({ collapsed, onToggle, active, setActive }) {
+function Sidebar({ collapsed, onToggle, active, setActive, connectedWallet }) {
   const W = collapsed ? 64 : 228;
   return (
     <aside style={{
@@ -201,7 +201,9 @@ function Sidebar({ collapsed, onToggle, active, setActive }) {
             <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", marginBottom: 5 }}>Connected Wallet</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.green, boxShadow: `0 0 6px ${C.green}` }} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>0x4f3A…c9B2</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>
+                {connectedWallet ? `${connectedWallet.slice(0, 6)}…${connectedWallet.slice(-4)}` : "No wallet"}
+              </span>
             </div>
             <Btn variant="coral" size="sm" sx={{ width: "100%", justifyContent: "center" }}>Disconnect</Btn>
           </div>
@@ -306,33 +308,6 @@ function StatCard({ icon, label, value, sub, color = C.coral, trend }) {
 }
 
 // ── Escrow Table ──────────────────────────────────────────────────────────────
-const ESCROWS = [
-  {
-    project:    "Brand Identity Suite",
-    freelancer: { initials: "AK", name: "Ana Kalaw",    color: "#8B5CF6" },
-    status:     "In Progress",
-    amount:     "₱14,500",
-    milestone:  "UI Kit (2/3)",
-    action:     { label: "View Details", variant: "subtle" },
-  },
-  {
-    project:    "Mobile App UI Design",
-    freelancer: { initials: "MR", name: "Marco Reyes",  color: "#3B82F6" },
-    status:     "Awaiting Delivery",
-    amount:     "₱8,200",
-    milestone:  "Prototype (1/2)",
-    action:     { label: "Send Reminder", variant: "ghost" },
-  },
-  {
-    project:    "Explainer Video Edit",
-    freelancer: { initials: "LC", name: "Liza Cruz",    color: "#10B981" },
-    status:     "Delivered · Review",
-    amount:     "₱5,800",
-    milestone:  "Final Cut (3/3)",
-    action:     { label: "Release Payment", variant: "coral" },
-  },
-];
-
 function formatWallet(wallet) {
   if (!wallet) return "Invite pending";
   if (wallet.length <= 12) return wallet;
@@ -465,13 +440,7 @@ function EscrowRow({ row, last }) {
 }
 
 // ── Activity Feed ─────────────────────────────────────────────────────────────
-const ACTIVITIES = [
-  { icon: "💸", color: C.green,  title: "Payment Released",     desc: "₱5,800 sent to Liza Cruz for Explainer Video Edit", time: "2 min ago" },
-  { icon: "⭐", color: C.amber,  title: "Review Received",      desc: "Ana Kalaw left a 5-star review on your Brand Identity project", time: "1 hr ago" },
-  { icon: "🔒", color: C.blue,   title: "Escrow Created",       desc: "New contract with Marco Reyes — ₱8,200 locked in escrow", time: "3 hrs ago" },
-];
-
-function ActivityFeed() {
+function ActivityFeed({ activities = [], loading = false }) {
   return (
     <div style={{
       background: "linear-gradient(135deg,rgba(24,24,32,.97),rgba(18,18,26,.97))",
@@ -482,7 +451,13 @@ function ActivityFeed() {
         <span style={{ fontSize: 12, color: C.coral, fontWeight: 600, cursor: "pointer" }}>View all →</span>
       </div>
       <div style={{ padding: "8px 0" }}>
-        {ACTIVITIES.map((a, i) => <ActivityItem key={i} {...a} last={i === ACTIVITIES.length - 1} />)}
+        {loading ? (
+          <div style={{ padding: "20px 22px", textAlign: "center", color: C.textMuted, fontSize: 13 }}>Loading activities...</div>
+        ) : activities.length === 0 ? (
+          <div style={{ padding: "20px 22px", textAlign: "center", color: C.textMuted, fontSize: 13 }}>No recent activity yet</div>
+        ) : (
+          activities.map((a, i) => <ActivityItem key={i} {...a} last={i === activities.length - 1} />)
+        )}
       </div>
     </div>
   );
@@ -538,11 +513,39 @@ function NotifBell() {
 
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function PangolinDashboard() {
+  const { supabase, user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState("dashboard");
   const [escrows, setEscrows] = useState([]);
   const [loadingEscrows, setLoadingEscrows] = useState(true);
   const [escrowError, setEscrowError] = useState("");
+  const [userProfile, setUserProfile] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [trustScore, setTrustScore] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadUserProfile() {
+      if (!user?.id) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name,wallet_address")
+        .eq("id", user.id)
+        .single();
+
+      if (mounted && data) {
+        setUserProfile(data);
+      }
+    }
+
+    loadUserProfile();
+
+    return () => { mounted = false; };
+  }, [user?.id, supabase]);
 
   useEffect(() => {
     let mounted = true;
@@ -563,6 +566,9 @@ export default function PangolinDashboard() {
         setEscrows([]);
       } else {
         setEscrows((data || []).map(toDisplayEscrow));
+
+        const completed = (data || []).filter(e => e.status === "completed").length;
+        setCompletedCount(completed);
       }
 
       setLoadingEscrows(false);
@@ -571,7 +577,38 @@ export default function PangolinDashboard() {
     loadEscrows();
 
     return () => { mounted = false; };
-  }, []);
+  }, [supabase]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadActivities() {
+      setLoadingActivities(true);
+
+      const { data } = await supabase
+        .from("escrow_events")
+        .select("id,event_type,message,created_at")
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (mounted && data) {
+        const formattedActivities = data.map(e => ({
+          icon: e.event_type === "funded" ? "🔒" : e.event_type === "delivered" ? "📦" : "💬",
+          color: e.event_type === "funded" ? C.blue : e.event_type === "delivered" ? C.coral : C.green,
+          title: e.event_type === "funded" ? "Escrow Funded" : e.event_type === "delivered" ? "Delivery Submitted" : e.event_type,
+          desc: e.message || "Activity recorded",
+          time: new Date(e.created_at).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" }),
+        }));
+        setActivities(formattedActivities);
+      }
+
+      setLoadingActivities(false);
+    }
+
+    loadActivities();
+
+    return () => { mounted = false; };
+  }, [supabase]);
 
   return (
     <>
@@ -605,6 +642,7 @@ export default function PangolinDashboard() {
           onToggle={() => setCollapsed(p => !p)}
           active={active}
           setActive={setActive}
+          connectedWallet={userProfile?.wallet_address}
         />
 
         {/* ── Main ── */}
@@ -626,7 +664,7 @@ export default function PangolinDashboard() {
                   Client Dashboard
                 </div>
                 <h1 style={{ fontSize: "clamp(22px,3vw,30px)", fontWeight: 900, letterSpacing: "-.04em", color: C.text }}>
-                  Welcome back, Juan Miguel 👋
+                  Welcome back, {userProfile?.display_name || "User"} 👋
                 </h1>
               </div>
 
@@ -642,10 +680,10 @@ export default function PangolinDashboard() {
 
             {/* ── Stats Row ── */}
             <div style={{ display: "flex", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
-              <StatCard icon="💰" label="Total Escrowed" value="Live"  sub="Synced from Supabase"   color={C.coral}  trend={12} />
+              <StatCard icon="💰" label="Total Escrowed" value={loadingEscrows ? "..." : `$${escrows.reduce((sum, e) => sum + parseFloat(e.amount.replace(/[$,]/g, "")), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}  sub="Synced from Supabase"   color={C.coral}  trend={12} />
               <StatCard icon="📁" label="Active Projects" value={loadingEscrows ? "..." : escrows.length}        sub="Contracts in database"     color={C.blue}              />
-              <StatCard icon="✅" label="Completed"       value="17"       sub="Since Jan 2025"             color={C.green}  trend={8}  />
-              <StatCard icon="⭐" label="Trust Score"     value="4.9 / 5"  sub="Based on 17 transactions"  color={C.amber}             />
+              <StatCard icon="✅" label="Completed"       value={completedCount}       sub="Since Jan 2025"             color={C.green}  trend={8}  />
+              <StatCard icon="⭐" label="Trust Score"     value={trustScore || "—"}  sub="Based on transactions"  color={C.amber}             />
             </div>
 
             {/* ── Active Escrows ── */}
@@ -662,7 +700,7 @@ export default function PangolinDashboard() {
 
             {/* ── Bottom row: Activity + Quick Tips ── */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, flexWrap: "wrap" }}>
-              <ActivityFeed />
+              <ActivityFeed activities={activities} loading={loadingActivities} />
               <QuickTips />
             </div>
 
