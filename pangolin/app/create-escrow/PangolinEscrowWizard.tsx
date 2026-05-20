@@ -351,7 +351,7 @@ function Step1({ data, setData, onNext }) {
 function Step2({ data, setData, onNext, onBack }) {
   const [milestones, setMilestones] = useState(data.milestones || [{ name: "", amount: "" }]);
   const total = parseFloat(data.totalAmount) || 0;
-  const minPct = data.minGuarantee ?? 60;
+  const minPct = data.minGuarantee ?? 40;
   const minUSDC = ((minPct / 100) * total).toFixed(2);
 
   const addMilestone = () => {
@@ -409,7 +409,7 @@ function Step2({ data, setData, onNext, onBack }) {
 
         {/* Slider */}
         <div style={{ marginBottom: 12 }}>
-          <input type="range" min={0} max={100} step={5} value={minPct}
+          <input type="range" min={10} max={50} step={5} value={minPct}
             onChange={e => setData({ ...data, minGuarantee: +e.target.value })}
             style={{ width: "100%", accentColor: C.coral, cursor: "pointer", height: 20 }} />
         </div>
@@ -510,7 +510,7 @@ function Step3({ data, onBack, onSubmit, txLoading = false, txError = null }) {
   const total = parseFloat(data.totalAmount) || 0;
   const fee = (total * 0.025).toFixed(2);
   const totalWithFee = (total + parseFloat(fee)).toFixed(2);
-  const minGuarantee = data.minGuarantee ?? 60;
+  const minGuarantee = data.minGuarantee ?? 40;
   const minUSDC = ((minGuarantee / 100) * total).toFixed(2);
 
   const Row = ({ label, value, highlight, muted, mono }) => (
@@ -670,7 +670,7 @@ function SuccessScreen({ data, onReset, txHash }) {
 // ── Root Wizard ───────────────────────────────────────────────────────────────
 const INIT = {
   title: "", category: "", description: "", freelancerWallet: "",
-  totalAmount: "", minGuarantee: 60, deadline: "",
+  totalAmount: "", minGuarantee: 40, deadline: "",
   milestonesEnabled: false, milestones: [{ name: "", amount: "" }],
 };
 
@@ -704,7 +704,7 @@ export default function PangolinEscrowWizard() {
         wallet.address,
         data.freelancerWallet,
         amountUsdc,
-        data.minGuarantee ?? 20,
+        data.minGuarantee ?? 40,
         deadlineTs,
         data.title,
         data.description,
