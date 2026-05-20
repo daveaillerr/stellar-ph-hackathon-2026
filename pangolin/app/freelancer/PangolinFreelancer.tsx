@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
-import { confirmFreelancer } from "@/lib/contract-client";
+import { confirmFreelancer, getEscrow } from "@/lib/contract-client";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Freelancer Screens (A: Invite Landing · B: Dashboard)
@@ -170,7 +170,12 @@ function ScreenA({ onAccept, inviteData }) {
     setAccepting(true);
     setAcceptError(null);
     try {
-      await confirmFreelancer(wallet.address, escrowOnchainId);
+      // Check on-chain status — skip confirm_freelancer if already Active or beyond
+      const onchain = await getEscrow(escrowOnchainId);
+      if (onchain.status === "FUNDED" || onchain.status === "CREATED") {
+        await confirmFreelancer(wallet.address, escrowOnchainId);
+      }
+      // Already Active/Delivered/Completed → treat as accepted, go to dashboard
       setAccepted(true);
     } catch (err) {
       setAcceptError(err instanceof Error ? err.message : "Transaction failed.");
