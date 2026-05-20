@@ -2,7 +2,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
+import { createEscrow, fundEscrow } from "@/lib/contract-client";
+import { parseAmountToInt } from "@/lib/format";
+import { appConfig } from "@/lib/config";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Escrow Creation Wizard  (3-step)
@@ -348,7 +351,7 @@ function Step1({ data, setData, onNext }) {
 function Step2({ data, setData, onNext, onBack }) {
   const [milestones, setMilestones] = useState(data.milestones || [{ name: "", amount: "" }]);
   const total = parseFloat(data.totalAmount) || 0;
-  const minPct = data.minGuarantee ?? 60;
+  const minPct = data.minGuarantee ?? 40;
   const minUSDC = ((minPct / 100) * total).toFixed(2);
 
   const addMilestone = () => {
@@ -406,7 +409,7 @@ function Step2({ data, setData, onNext, onBack }) {
 
         {/* Slider */}
         <div style={{ marginBottom: 12 }}>
-          <input type="range" min={0} max={100} step={5} value={minPct}
+          <input type="range" min={10} max={50} step={5} value={minPct}
             onChange={e => setData({ ...data, minGuarantee: +e.target.value })}
             style={{ width: "100%", accentColor: C.coral, cursor: "pointer", height: 20 }} />
         </div>
@@ -493,16 +496,6 @@ function Step2({ data, setData, onNext, onBack }) {
         <Input value={data.deadline} onChange={e => setData({ ...data, deadline: e.target.value })} type="date" />
       </div>
 
-      {/* Auto-release toggle */}
-      <div style={{ background: C.elevated, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: "16px 20px" }}>
-        <Toggle
-          on={data.autoRelease ?? true}
-          setOn={v => setData({ ...data, autoRelease: v })}
-          label="48-Hour Auto-Release"
-          sub="Payment releases automatically if client doesn't respond within 48 hrs of delivery"
-        />
-      </div>
-
       <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
         <Btn variant="ghost" size="lg" onClick={onBack}>← Back</Btn>
         <Btn variant="coral" size="xl" fullWidth disabled={!valid} onClick={handleNext}>Next: Review →</Btn>
@@ -512,12 +505,12 @@ function Step2({ data, setData, onNext, onBack }) {
 }
 
 // ── STEP 3: Review & Confirm ──────────────────────────────────────────────────
-function Step3({ data, onBack, onSubmit, saving, submitError }) {
+function Step3({ data, onBack, onSubmit, txLoading = false, txError = null }) {
   const [confirmed, setConfirmed] = useState(false);
   const total = parseFloat(data.totalAmount) || 0;
   const fee = (total * 0.025).toFixed(2);
   const totalWithFee = (total + parseFloat(fee)).toFixed(2);
-  const minGuarantee = data.minGuarantee ?? 60;
+  const minGuarantee = data.minGuarantee ?? 40;
   const minUSDC = ((minGuarantee / 100) * total).toFixed(2);
 
   const Row = ({ label, value, highlight, muted, mono }) => (
@@ -554,7 +547,7 @@ function Step3({ data, onBack, onSubmit, saving, submitError }) {
           <Row label="Freelancer Wallet"  value={data.freelancerWallet || "Invite Link"} mono                  />
           <Row label="Payment Structure"  value={data.milestonesEnabled ? "Milestone-based" : "Single Payment"}/>
           <Row label="Deadline"           value={data.deadline || "—"}                                         />
-          <Row label="Auto-Release"       value={(data.autoRelease ?? true) ? "✅ 48 hrs after delivery" : "Manual"} />
+          <Row label="Auto-Release"       value="✅ 48 hrs after delivery" />
         </div>
 
         {/* Financial breakdown */}
@@ -634,8 +627,13 @@ function Step3({ data, onBack, onSubmit, saving, submitError }) {
       {/* CTAs */}
       <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
         <Btn variant="ghost" size="lg" onClick={onBack}>← Back</Btn>
-        <Btn variant="coral" size="xl" fullWidth disabled={!confirmed || saving} onClick={onSubmit}>
-          {saving ? "Creating Escrow..." : "🔒 Fund Escrow Now"}
+        {txError && (
+          <div style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "#F87171", lineHeight: 1.55 }}>
+            {txError}
+          </div>
+        )}
+        <Btn variant="coral" size="xl" fullWidth disabled={!confirmed || txLoading} onClick={onSubmit}>
+          {txLoading ? "⏳ Signing & Submitting…" : "🔒 Fund Escrow Now"}
         </Btn>
       </div>
 
@@ -653,7 +651,7 @@ function Step3({ data, onBack, onSubmit, saving, submitError }) {
 }
 
 // ── Success Screen ────────────────────────────────────────────────────────────
-function SuccessScreen({ data, onReset }) {
+function SuccessScreen({ data, onReset, txHash }) {
   return (
     <div style={{ textAlign: "center", padding: "40px 20px" }}>
       <div style={{ fontSize: 64, marginBottom: 20, animation: "bounce-in .5s cubic-bezier(.4,0,.2,1)" }}>🎉</div>
@@ -662,6 +660,11 @@ function SuccessScreen({ data, onReset }) {
         <strong style={{ color: C.text }}>{data.title}</strong> is now live.<br />
         Your freelancer has been notified and ${(parseFloat(data.totalAmount) * 1.025).toFixed(2)} USDC is locked securely on Stellar.
       </div>
+      {txHash && (
+        <div style={{ background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.25)", borderRadius: 12, padding: "12px 18px", marginBottom: 20, fontSize: 12.5, color: "#34D399", fontFamily: "monospace", wordBreak: "break-all" }}>
+          ⛓️ Tx: {txHash}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
         <Btn variant="coral" size="lg" onClick={onReset}>Create Another Escrow</Btn>
         <Btn variant="ghost" size="lg" onClick={() => go("/dashboard")}>View Dashboard</Btn>
@@ -673,9 +676,8 @@ function SuccessScreen({ data, onReset }) {
 // ── Root Wizard ───────────────────────────────────────────────────────────────
 const INIT = {
   title: "", category: "", description: "", freelancerWallet: "",
-  totalAmount: "", minGuarantee: 60, deadline: "",
+  totalAmount: "", minGuarantee: 40, deadline: "",
   milestonesEnabled: false, milestones: [{ name: "", amount: "" }],
-  autoRelease: true,
 };
 
 export default function PangolinEscrowWizard() {
@@ -683,85 +685,45 @@ export default function PangolinEscrowWizard() {
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
   const [data, setData] = useState(INIT);
-  const [saving, setSaving] = useState(false);
-  const [submitError, setSubmitError] = useState("");
+  const [txHash, setTxHash] = useState(null);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txError, setTxError] = useState(null);
   const scrollRef = useRef(null);
+  const { wallet, connectWallet } = useFreighterWallet();
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
 
-  const reset = () => { setStep(1); setDone(false); setData(INIT); setSubmitError(""); };
+  const reset = () => { setStep(1); setDone(false); setData(INIT); setTxHash(null); setTxError(null); };
 
-  const createEscrow = async () => {
-    setSaving(true);
-    setSubmitError("");
-
+  const handleSubmit = async () => {
+    if (!wallet.address) {
+      setTxError("Connect your Freighter wallet first.");
+      return;
+    }
+    setTxLoading(true);
+    setTxError(null);
     try {
-      const amount = Number(data.totalAmount) || 0;
-      const minPct = Number(data.minGuarantee ?? 60);
-      const platformFee = Number((amount * 0.025).toFixed(2));
-      const minGuaranteeAmount = Number(((amount * minPct) / 100).toFixed(2));
-
-      let clientWallet = "";
-      if (user?.id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("wallet_address")
-          .eq("id", user.id)
-          .single();
-        clientWallet = profile?.wallet_address || "";
-      }
-
-      const { data: escrow, error } = await supabase
-        .from("escrows")
-        .insert({
-          client_id: user?.id || null,
-          client_wallet: clientWallet || `user-${user?.id || "unknown"}`,
-          freelancer_wallet: data.freelancerWallet || null,
-          title: data.title,
-          category: data.category,
-          description: data.description,
-          amount_usdc: amount,
-          platform_fee_usdc: platformFee,
-          min_guarantee_pct: minPct,
-          min_guarantee_usdc: minGuaranteeAmount,
-          status: "created",
-          deadline: data.deadline || null,
-          review_hours: (data.autoRelease ?? true) ? 48 : null,
-          auto_release_enabled: data.autoRelease ?? true,
-        })
-        .select("id")
-        .single();
-
-      if (error) throw error;
-
-      const milestoneRows = data.milestonesEnabled
-        ? (data.milestones || [])
-            .filter(m => m.name || m.amount)
-            .map((m, index) => ({
-              escrow_id: escrow.id,
-              title: m.name || `Milestone ${index + 1}`,
-              amount_usdc: Number(m.amount) || 0,
-              sort_order: index + 1,
-              status: "created",
-            }))
-        : [];
-
-      if (milestoneRows.length > 0) {
-        const { error: milestoneError } = await supabase.from("milestones").insert(milestoneRows);
-        if (milestoneError) throw milestoneError;
-      }
-
-      await supabase.from("escrow_events").insert({
-        escrow_id: escrow.id,
-        event_type: "escrow_created",
-        message: "Escrow created from Pangolin demo",
-      });
-
+      const amountUsdc = parseAmountToInt(data.totalAmount || "0", appConfig.assetDecimals);
+      const deadlineTs = data.deadline
+        ? Math.floor(new Date(data.deadline).getTime() / 1000)
+        : Math.floor(Date.now() / 1000) + 86400 * 30;
+      const { escrowId, hash: createHash } = await createEscrow(
+        wallet.address,
+        data.freelancerWallet,
+        amountUsdc,
+        data.minGuarantee ?? 40,
+        deadlineTs,
+        data.title,
+        data.description,
+      );
+      if (escrowId == null) throw new Error("Contract did not return an escrow ID. Check explorer and try again.");
+      const { hash: fundHash } = await fundEscrow(wallet.address, escrowId);
+      setTxHash(fundHash);
       setDone(true);
-    } catch (error) {
-      setSubmitError(error?.message || "We could not create this escrow yet. Please check Supabase policies and try again.");
+    } catch (err) {
+      setTxError(err instanceof Error ? err.message : "Transaction failed. Try again.");
     } finally {
-      setSaving(false);
+      setTxLoading(false);
     }
   };
 
@@ -802,12 +764,28 @@ export default function PangolinEscrowWizard() {
 
         <div style={{ maxWidth: 640, margin: "0 auto", position: "relative", animation: "fade-up .35s ease" }}>
 
-          {/* Logo */}
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 36 }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, gap: 12 }}>
+            <button onClick={() => go("/dashboard")} style={{
+              display: "flex", alignItems: "center", gap: 7,
+              background: "transparent", border: `1px solid ${C.border}`,
+              borderRadius: 10, padding: "8px 14px",
+              color: C.textSub, fontSize: 13, fontWeight: 600,
+              cursor: "pointer", fontFamily: C.font,
+              transition: "all .15s ease", flexShrink: 0,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = C.elevated; e.currentTarget.style.borderColor = C.borderLight; e.currentTarget.style.color = C.text; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
+            >
+              ← Dashboard
+            </button>
+
             <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "linear-gradient(135deg,#1D1D28,#17171F)", border: `1px solid ${C.border}`, borderRadius: 14, padding: "10px 20px", boxShadow: "0 0 0 1px rgba(255,107,53,.08)" }}>
               <span style={{ fontSize: 22 }}>🐧</span>
               <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-.03em", background: "linear-gradient(135deg,#FF6B35,#FF9A6C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Pangolin</span>
             </div>
+
+            <div style={{ width: 120 }} />
           </div>
 
           {/* Header text */}
@@ -834,13 +812,13 @@ export default function PangolinEscrowWizard() {
             {!done && <StepBar step={step} />}
 
             {done ? (
-              <SuccessScreen data={data} onReset={reset} />
+              <SuccessScreen data={data} onReset={reset} txHash={txHash} />
             ) : step === 1 ? (
               <Step1 data={data} setData={setData} onNext={() => setStep(2)} />
             ) : step === 2 ? (
               <Step2 data={data} setData={setData} onNext={() => setStep(3)} onBack={() => setStep(1)} />
             ) : (
-              <Step3 data={data} onBack={() => setStep(2)} onSubmit={createEscrow} saving={saving} submitError={submitError} />
+              <Step3 data={data} onBack={() => setStep(2)} onSubmit={handleSubmit} txLoading={txLoading} txError={txError} />
             )}
           </div>
 

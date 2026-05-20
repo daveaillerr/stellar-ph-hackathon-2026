@@ -1,8 +1,9 @@
 // @ts-nocheck
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
+import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
+import { shortenAddress } from "@/lib/format";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Client Dashboard
@@ -135,7 +136,7 @@ const getNavItems = (escrowCount = 0, messageCount = 0) => [
   { id: "settings",   icon: "⚙️", label: "Settings" },
 ];
 
-function Sidebar({ collapsed, onToggle, active, setActive, connectedWallet, escrowCount = 0, messageCount = 0 }) {
+function Sidebar({ collapsed, onToggle, active, setActive, wallet, onConnect, onDisconnect }) {
   const W = collapsed ? 64 : 228;
   const navItems = getNavItems(escrowCount, messageCount);
   return (
@@ -193,7 +194,7 @@ function Sidebar({ collapsed, onToggle, active, setActive, connectedWallet, escr
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 18, cursor: "pointer",
           }}>🔗</div>
-        ) : (
+        ) : wallet?.status === "connected" && wallet.address ? (
           <div style={{
             background: `linear-gradient(135deg,rgba(255,107,53,.1),rgba(255,107,53,.04))`,
             border: `1px solid rgba(255,107,53,.28)`,
@@ -202,11 +203,18 @@ function Sidebar({ collapsed, onToggle, active, setActive, connectedWallet, escr
             <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", marginBottom: 5 }}>Connected Wallet</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.green, boxShadow: `0 0 6px ${C.green}` }} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>
-                {connectedWallet ? `${connectedWallet.slice(0, 6)}…${connectedWallet.slice(-4)}` : "No wallet"}
-              </span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>{shortenAddress(wallet.address)}</span>
             </div>
-            <Btn variant="coral" size="sm" sx={{ width: "100%", justifyContent: "center" }}>Disconnect</Btn>
+            <Btn variant="coral" size="sm" onClick={onDisconnect} sx={{ width: "100%", justifyContent: "center" }}>Disconnect</Btn>
+          </div>
+        ) : (
+          <div style={{
+            background: `linear-gradient(135deg,rgba(255,107,53,.06),rgba(255,107,53,.02))`,
+            border: `1px solid rgba(255,107,53,.18)`,
+            borderRadius: 13, padding: "11px 14px",
+          }}>
+            <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", marginBottom: 8 }}>Wallet</div>
+            <Btn variant="coral" size="sm" onClick={onConnect} sx={{ width: "100%", justifyContent: "center" }}>🔗 Connect Freighter</Btn>
           </div>
         )}
       </div>
@@ -408,7 +416,7 @@ function EscrowRow({ row, last }) {
       {/* Project */}
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 2 }}>{row.project}</div>
-        <div style={{ fontSize: 11.5, color: C.textMuted }}>Contract #PGL-{Math.floor(Math.random() * 9000 + 1000)}</div>
+        <div style={{ fontSize: 11.5, color: C.textMuted }}>Contract #PGL-{row.id}</div>
       </div>
       {/* Freelancer */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -643,9 +651,9 @@ export default function PangolinDashboard() {
           onToggle={() => setCollapsed(p => !p)}
           active={active}
           setActive={setActive}
-          connectedWallet={userProfile?.wallet_address}
-          escrowCount={escrows.length}
-          messageCount={0}
+          wallet={wallet}
+          onConnect={connectWallet}
+          onDisconnect={disconnectWallet}
         />
 
         {/* ── Main ── */}
