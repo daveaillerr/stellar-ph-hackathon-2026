@@ -670,6 +670,23 @@ function NotifBell({ profile, escrows = [], activities = [] }) {
   );
 }
 
+// ── Activity event type → human-readable label ────────────────────────────────
+function eventLabel(eventType) {
+  const map = {
+    escrow_created:   "Escrow Created",
+    funded:           "Escrow Funded",
+    delivered:        "Delivery Submitted",
+    approved:         "Delivery Approved",
+    completed:        "Escrow Completed",
+    disputed:         "Dispute Raised",
+    resolved:         "Dispute Resolved",
+    cancelled:        "Escrow Cancelled",
+    milestone_added:  "Milestone Added",
+    message_sent:     "Message Sent",
+  };
+  return map[eventType] || eventType;
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function PangolinDashboard() {
   const { supabase, user } = useAuth();
@@ -751,25 +768,44 @@ export default function PangolinDashboard() {
 
       const { data } = await supabase
         .from("escrow_events")
-        .select("id,event_type,message,created_at")
+        .select("id,event_type,message,created_at,escrow_id,escrows(title)")
         .order("created_at", { ascending: false })
         .limit(3);
 
       if (mounted && data) {
-        const formattedActivities = data.map(e => ({
-          icon: e.event_type === "funded" ? "🔒" : e.event_type === "delivered" ? "📦" : "💬",
-          color: e.event_type === "funded" ? C.blue : e.event_type === "delivered" ? C.coral : C.green,
-          title: e.event_type === "funded" ? "Escrow Funded" : e.event_type === "delivered" ? "Delivery Submitted" : e.event_type,
-          desc: e.message || "Activity recorded",
-          time: new Date(e.created_at).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" }),
-        }));
+        const formattedActivities = data.map(e => {
+          // Use the escrow title as the activity title; fall back to a
+          // human-readable event label if the title is unavailable.
+          const escrowTitle = e.escrows?.title || null;
+          const label = eventLabel(e.event_type);
+
+          return {
+            icon:  e.event_type === "funded"          ? "🔒"
+                 : e.event_type === "delivered"        ? "📦"
+                 : e.event_type === "escrow_created"   ? "📋"
+                 : e.event_type === "completed"        ? "✅"
+                 : e.event_type === "disputed"         ? "⚖️"
+                 : "💬",
+            color: e.event_type === "funded"          ? C.blue
+                 : e.event_type === "delivered"        ? C.coral
+                 : e.event_type === "completed"        ? C.green
+                 : e.event_type === "disputed"         ? C.amber
+                 : C.green,
+            // Show the escrow title as the primary heading in the feed.
+            // If no title is found, fall back to the readable event label.
+            title: escrowTitle || label,
+            // Show the readable event label as the subtitle/description line.
+            desc:  escrowTitle ? label : (e.message || "Activity recorded"),
+            time:  new Date(e.created_at).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" }),
+          };
+        });
         setActivities(formattedActivities);
       }
 
       setLoadingActivities(false);
     }
 
-    loadActivities();
+    loadActivities()
 
     return () => { mounted = false; };
   }, [supabase]);
