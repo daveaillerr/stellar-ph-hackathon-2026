@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
-import { submitDelivery, getEscrow, confirmFreelancer } from "@/lib/contract-client";
+import { submitDelivery, submitMilestoneDelivery, getEscrow, confirmFreelancer, getMilestones } from "@/lib/contract-client";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    PANGOLIN  —  Freelancer Delivery Flow
@@ -243,8 +243,20 @@ function ScreenA({ onSubmit, escrow, milestones, loadingEscrow, loadingMilestone
 
         // DELIVERED/COMPLETED = already submitted on-chain, skip contract call, record in DB only
         if (onchainStatus !== "DELIVERED" && onchainStatus !== "COMPLETED") {
-          const { hash } = await submitDelivery(fresh.address, onchainId, hashHex);
-          txHash = hash;
+          // Try milestone-aware submit first; fall back to legacy single-payment submit
+          let onchainMilestones = [];
+          try {
+            onchainMilestones = await getMilestones(onchainId);
+          } catch {
+            onchainMilestones = [];
+          }
+          if (onchainMilestones.length > 0) {
+            const { hash } = await submitMilestoneDelivery(fresh.address, onchainId, hashHex);
+            txHash = hash;
+          } else {
+            const { hash } = await submitDelivery(fresh.address, onchainId, hashHex);
+            txHash = hash;
+          }
         }
       } catch (err) {
         setSubmitting(false);
