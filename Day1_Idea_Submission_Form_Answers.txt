@@ -1,11 +1,9 @@
+
 ================================================================================
 PANGOLIN — STELLAR PHILIPPINES HACKATHON 2026
 DAY 1 IDEA SUBMISSION FORM — COPY-PASTE READY
-Prepared: May 16, 2026
+Prepared: May 22, 2026
 ================================================================================
-
-NOTE: Fields marked [FILL IN] require your specific information before submitting.
-Everything else is ready to copy-paste as-is.
 
 ================================================================================
 PROBLEM STATEMENT (STANDALONE — USE THIS ANYWHERE)
@@ -72,10 +70,13 @@ HOW IT WORKS (THE CORE FLOW):
 3. Client deposits USDC into a Pangolin Soroban smart contract on Stellar.
 4. Freelancer receives on-chain proof that the money is locked and waiting.
    They can now start working with confidence.
-5. Freelancer delivers the work.
+5. Freelancer submits the completed work — file hash is timestamped on Stellar,
+   creating an immutable, verifiable proof of delivery.
 6. Client reviews and approves — full payment releases instantly to freelancer.
 7. If client disputes or goes silent: the minimum guaranteed % goes to the freelancer
    automatically. The remaining amount is handled via the dispute process.
+8. Auto-release: if the client takes no action within 48 hours of delivery,
+   payment releases to the freelancer automatically.
 
 THE KEY INNOVATION — MINIMUM GUARANTEED PAYMENT:
 
@@ -166,20 +167,17 @@ payment backbone of the entire system)
 QUESTION 6 — TEAM MEMBER NAMES & ROLES
 ================================================================================
 
-[FILL IN — Replace each line with actual team member name + role]
+Team Lead / Product & Frontend:   Lawrence Panes
+Smart Contract / Backend:         Dave Aillerr Rivas
+Frontend / Full-Stack:            Nichola Ilim
 
-Team Lead / Product Strategy:     [Your Name — Lawrence Panes]
-Smart Contract Developer:         [Team Member 2 Name]
-Backend Developer:                [Team Member 3 Name]
-Frontend Developer:               [Team Member 4 Name]
-Developer / QA / Integration:     [Team Member 5 Name]
-
-Team Size: 5 members
+Team Size: 3 members
 All members: Developers (full-stack capable)
 Primary PM / Strategy: Lawrence Panes (Team Lead)
 
-NOTE: All 5 members are developers. Strategy, business model, and validation
-research are pre-built. The team will focus 80%+ of hackathon time on execution.
+NOTE: All 3 members are developers. Strategy, business model, and validation
+research are pre-built. The team focused 80%+ of hackathon time on execution —
+with a working deployed product on Stellar Testnet by Day 2.
 
 ================================================================================
 QUESTION 7 — INITIAL TECHNICAL APPROACH
@@ -190,50 +188,69 @@ CORE STACK:
 Smart Contract Layer:
 - Platform: Soroban (Stellar's native smart contract platform)
 - Language: Rust
-- Contract logic: Escrow state machine with 5 states —
-  CREATED → FUNDED → ACTIVE → COMPLETED / DISPUTED / CANCELLED
-- Key functions: deposit(), release(), dispute(), cancel(), getStatus()
+- Contract deployed to Stellar Testnet:
+  CC4UBEGAAWHP3THETSYJZ6SGT6VEOXTLMYS5K4WL654LNXB2C5TOKQCC
+- Contract logic: Escrow state machine with 7 states —
+  CREATED → FUNDED → ACTIVE → DELIVERED → COMPLETED / DISPUTED / CANCELLED
+- Implemented contract functions:
+  create_escrow, fund_escrow, confirm_freelancer, submit_delivery,
+  approve_release, trigger_dispute, auto_release, cancel_escrow,
+  get_escrow, get_escrow_count
 - Minimum guarantee logic: hardcoded floor % enforced at contract level —
   client cannot withdraw below freelancer's guaranteed minimum under any condition
 - Milestone support: optional split releases within single contract
+- Delivery hash: SHA-256 of delivered file recorded on-chain at submission —
+  tamper-proof, timestamped proof of delivery
 
 Payment Layer:
 - Stablecoin: USDC on Stellar (Circle-issued, native — not bridged)
-  Asset issuer: GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN
-- All contract values denominated in USDC
+- Testnet USDC asset: CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
+- Mainnet USDC issuer: GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN
+- All contract values denominated in USDC (7 decimal places)
 - Stellar transaction fees: ~$0.00001 per operation
 
 Authentication / Wallet:
-- Primary wallet: Freighter Wallet (browser extension)
+- Primary: Freighter Wallet (browser extension) — Stellar public key = user account
+- Secondary: Email/password auth with role-based routing (client vs freelancer)
 - Wallet connect: @stellar/freighter-api
-- User identity: Stellar public key (G-address)
-- No username/password required — wallet IS the account
+- Role-based dashboards: separate UI flows for client and freelancer
+- Wallet-to-profile linking: Freighter address stored in user profile on first connect
 
 Frontend:
 - Framework: Next.js (React) + TypeScript
 - Stellar SDK: @stellar/stellar-sdk (JavaScript)
-- Soroban JS SDK: @stellar/stellar-sdk/contract
-- UI: Clean, mobile-friendly, minimal crypto jargon
-- Key screens: Create Escrow, Fund Escrow, Confirm Delivery, Release/Dispute
+- UI: Role-specific dashboards, mobile-friendly, minimal crypto jargon
+- Key screens:
+  - Client: Create Escrow wizard, Escrow Detail (delivery review + release/dispute),
+    Dashboard (active/completed contracts, recent activity)
+  - Freelancer: Dashboard (active jobs, earnings, invite matching), Delivery Flow
+    (file upload + on-chain hash submission), Payment Received confirmation
 
-Backend (minimal):
-- Purpose: off-chain metadata only (project title, description, file hashes)
-- On-chain: all financial logic (no backend can touch funds)
-- Optional: email/Discord notifications on state changes
+Backend:
+- Database: Supabase (PostgreSQL) — off-chain metadata only
+  (project title, description, file hashes, delivery notes, user profiles,
+  milestones, dispute records, escrow event log)
+- All financial logic lives on-chain — no backend can touch funds
+- Real-time escrow status sync between Stellar and Supabase
 
 Deployment:
-- Testnet: Stellar Testnet (Days 2–4)
-- Mainnet: Stellar Mainnet (Days 5–6)
+- Testnet: Stellar Testnet (currently live)
+- Mainnet: Stellar Mainnet (target: Day 6)
 - Frontend: Vercel
+- Database: Supabase cloud
 
-MVP SCOPE FOR HACKATHON (7 DAYS):
-- Create escrow agreement (both parties sign)
-- Client deposits USDC
-- Freelancer confirms funding (sees on-chain proof)
-- Client releases full payment on approval
-- Automatic minimum guarantee enforcement if disputed
-- Basic transaction history per wallet address
-- Freighter wallet connect + disconnect
+WHAT IS ALREADY BUILT AND WORKING:
+- Soroban escrow contract deployed and functional on Stellar Testnet
+- Full client-side escrow creation wizard (multi-step, milestone support)
+- Client escrow funding via Freighter wallet
+- Freelancer delivery submission with on-chain SHA-256 hash recording
+- Client approve & release — triggers on-chain approve_release
+- Dispute flow — triggers on-chain trigger_dispute, routes to dispute page
+- 48-hour auto-release countdown (auto_release function implemented)
+- Role-based auth: separate client and freelancer dashboard flows
+- Freelancer invite/matching system (client invites specific freelancer by wallet)
+- Trust score foundation: dispute and completion history tracked on-chain
+- Recent activity feed, escrow event log
 
 ================================================================================
 QUESTION 8 — EXPECTED STELLAR INTEGRATION
@@ -244,30 +261,32 @@ Every core product function runs on Stellar infrastructure:
 
 1. SOROBAN SMART CONTRACTS (Primary Integration)
    - All escrow logic lives in Soroban contracts on Stellar
+   - Deployed contract: CC4UBEGAAWHP3THETSYJZ6SGT6VEOXTLMYS5K4WL654LNXB2C5TOKQCC
    - Minimum guarantee enforcement is a Soroban function — cannot be bypassed
+   - Delivery hash (SHA-256) timestamped on-chain at submission — immutable proof
    - Contract state is publicly verifiable on Stellar Explorer
    - Both parties can audit the terms before funding
 
 2. USDC ON STELLAR (Payment Infrastructure)
    - Circle-issued USDC native to Stellar (not bridged from Ethereum)
-   - Asset issuer: GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN
+   - Mainnet asset issuer: GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN
    - Stablecoin = dollar-pegged value, zero volatility risk for freelancer income
    - Payments settle in 3–5 seconds at ~$0.00001 per operation
    - Filipino freelancers can convert USDC → PHP via Coins.ph or PDAX
 
 3. STELLAR ACCOUNTS AS USER IDENTITY
-   - Freighter wallet (Stellar public key) = user account
-   - No email, no password, no KYC at launch (permissionless MVP)
+   - Freighter wallet (Stellar public key) = user account and payment address
    - On-chain transaction history = the foundation for Pangolin Trust Score
-     (future: reputation score derived from completed escrow contracts)
+     (reputation score derived from completed escrow contracts)
+   - Wallet address stored in user profile, enabling direct on-chain fund release
 
 4. STELLAR NETWORK ADVANTAGES THAT DIRECTLY BENEFIT THE USE CASE
    - 3–5 second finality: freelancer receives confirmation faster than a GCash transfer
    - $0.00001 fees: platform can charge 2.5% and still be 75% cheaper than Vgen
    - 100 operations/second throughput: scalable from Day 1 to thousands of users
    - Built-in DEX: future feature — accept any Stellar asset, auto-convert to USDC
-   - Stellar Testnet: full-featured test environment for safe development (Days 2–4)
-   - Stellar Mainnet deployment: production-ready by Day 6
+   - Stellar Testnet: full-featured test environment used throughout development
+   - Stellar Mainnet deployment: target Day 6 of hackathon
 
 5. WHY STELLAR OVER ETHEREUM / SOLANA FOR THIS USE CASE
    - Ethereum gas fees (~$5–50/tx) make $50 commissions economically unviable
@@ -281,17 +300,16 @@ Every core product function runs on Stellar infrastructure:
 QUESTION 9 — XLM MAINNET WALLET ADDRESS
 ================================================================================
 
-[FILL IN — Your Freighter Wallet Stellar Mainnet address (starts with G...)]
+[FILL IN — Lawrence Panes' Freighter Wallet Stellar Mainnet address (starts with G...)]
 
 HOW TO GET YOUR WALLET ADDRESS:
-1. Install Freighter Wallet: freighter.app (browser extension)
-2. Create new wallet → save your 24-word seed phrase securely
-3. Switch network to "Mainnet" in Freighter settings
-4. Copy your public key (G-address) — this is your wallet address
-5. Paste here
+1. Open Freighter Wallet browser extension
+2. Switch network to "Mainnet" in Freighter settings
+3. Copy your public key (G-address) — this is your wallet address
+4. Paste here
 
-IMPORTANT: Use the team lead's wallet (Lawrence Panes). This address will receive
-the ₱50,000 prize and XLM deployment support from the hackathon organizers.
+IMPORTANT: This address will receive the ₱50,000 prize and XLM deployment
+support from the hackathon organizers.
 
 ================================================================================
 QUICK REFERENCE — KEY NUMBERS FOR VERBAL PITCH
@@ -305,6 +323,8 @@ QUICK REFERENCE — KEY NUMBERS FOR VERBAL PITCH
 "500,000 PH digital art workers." (core serviceable market)
 "20% floor, enforced by code."    (the minimum guarantee — core innovation)
 "3–5 seconds to settle."          (Stellar finality vs PayPal T+3 days)
+"Already deployed on testnet."    (live contract, working product, not a mockup)
+"SHA-256 hash on Stellar."        (tamper-proof proof of delivery — unique feature)
 
 ================================================================================
 TAGLINE OPTIONS
@@ -323,5 +343,5 @@ CLOSING STATEMENT (for pitch ending):
 
 ================================================================================
 END OF DOCUMENT
-Pangolin | Stellar Philippines Hackathon 2026 | Team: Lawrence Panes + 4
+Pangolin | Stellar Philippines Hackathon 2026 | Team: Lawrence Panes, Dave Aillerr Rivas, Nichola Ilim
 ================================================================================

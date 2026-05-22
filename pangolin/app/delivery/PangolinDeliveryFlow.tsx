@@ -897,20 +897,6 @@ export default function PangolinDeliveryFlow() {
           </div>
         </div>
 
-        {/* Screen switcher */}
-        <div style={{ position: "fixed", top: 12, right: 16, zIndex: 999, display: "flex", gap: 4, background: "rgba(17,17,22,.9)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 5, backdropFilter: "blur(12px)" }}>
-          {[["A", "🚀 Submit"], ["B", "✅ Received"]].map(([id, label]) => (
-            <button key={id} onClick={() => setScreen(id)} style={{
-              padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: C.font,
-              background: screen === id ? "linear-gradient(135deg,rgba(46,175,125,.2),rgba(46,175,125,.08))" : "transparent",
-              boxShadow: screen === id ? "inset 0 0 0 1px rgba(46,175,125,.28)" : "none",
-              color: screen === id ? C.coral : C.textMuted,
-              fontSize: 12.5, fontWeight: screen === id ? 700 : 500,
-              transition: "all .15s",
-            }}>{label}</button>
-          ))}
-        </div>
-
         {/* Screen content */}
         <div key={screen} style={{ animation: "fade-up .32s ease" }}>
           {screen === "A"

@@ -566,13 +566,25 @@ function ActionSidebar({ escrow, reviewAmount }) {
   const [approveTxHash, setApproveTxHash] = useState(null);
   const [disputeLoading, setDisputeLoading] = useState(false);
   const [disputeError, setDisputeError] = useState(null);
-  const { wallet } = useFreighterWallet();
+  const { wallet, connectWallet } = useFreighterWallet();
 
   const handleApprove = async () => {
-    if (!wallet?.address) { setApproveError("Connect Freighter wallet first."); return; }
     setApproveLoading(true); setApproveError(null);
+    let fresh;
     try {
-      const { hash } = await approveRelease(wallet.address, onchainEscrowId);
+      fresh = await connectWallet();
+    } catch {
+      setApproveError("Could not connect Freighter wallet.");
+      setApproveLoading(false);
+      return;
+    }
+    if (!fresh?.address) {
+      setApproveError("Connect your Freighter wallet first.");
+      setApproveLoading(false);
+      return;
+    }
+    try {
+      const { hash } = await approveRelease(fresh.address, onchainEscrowId);
       setApproveTxHash(hash);
       await supabase.from("escrows").update({ status: "completed", completed_at: new Date().toISOString() }).eq("stellar_contract_id", String(onchainEscrowId));
     await supabase.from("escrow_events").insert({
