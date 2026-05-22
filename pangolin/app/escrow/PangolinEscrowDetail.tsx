@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useFreighterWallet } from "@/hooks/use-freighter-wallet";
@@ -302,14 +302,66 @@ function BalanceCard({
 }
 
 // ── Vertical Milestone Stepper ──────────────────────────────────────────────
-function MilestoneStepper({ milestones = MILESTONES }) {
-  const [approving, setApproving] = useState(null);
+function MilestoneStepper({ milestones = MILESTONES, supabase, escrow, onRefresh }) {
+  const { connectWallet } = useFreighterWallet();
+  const [loadingId, setLoadingId] = useState(null);
+  const [errorId, setErrorId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [releasedIds, setReleasedIds] = useState(new Set());
+
+  const norm = (s) => (s || "").toLowerCase();
 
   const stepIcon = (status) => {
-    if (status === "completed") return { icon: "✓", bg: C.green, shadow: C.green };
-    if (status === "delivered") return { icon: "📦", bg: C.coral, shadow: C.coral };
-    if (status === "active") return { icon: "⚡", bg: C.blue, shadow: C.blue };
+    const s = norm(status);
+    if (s === "approved" || s === "completed") return { icon: "✓", bg: C.green, shadow: C.green };
+    if (s === "delivered") return { icon: "📦", bg: C.coral, shadow: C.coral };
+    if (s === "active" || s === "funded") return { icon: "⚡", bg: C.blue, shadow: C.blue };
     return { icon: "○", bg: C.card, shadow: "transparent" };
+  };
+
+  const handleApproveMilestone = async (ms) => {
+    setLoadingId(ms.id); setErrorId(null);
+    try {
+      const fresh = await connectWallet();
+      if (!fresh?.address) throw new Error("Connect Freighter wallet first.");
+
+      await supabase.from("milestones").update({
+        status: "completed",
+        approved_at: new Date().toISOString(),
+      }).eq("id", ms.id);
+
+      const remaining = milestones.filter(m => m.id !== ms.id && norm(m.status) !== "completed" && norm(m.status) !== "approved");
+      const isLast = remaining.length === 0;
+      let txHash = null;
+
+      if (isLast) {
+        const onchainId = parseInt(escrow?.stellar_contract_id ?? "0") || 0;
+        if (onchainId) {
+          const { hash } = await approveRelease(fresh.address, onchainId);
+          txHash = hash;
+        }
+        await supabase.from("escrows").update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          ...(txHash ? { stellar_release_tx_hash: txHash } : {}),
+        }).eq("id", escrow.id);
+      }
+
+      await supabase.from("escrow_events").insert({
+        escrow_id: escrow.id,
+        event_type: "milestone_approved",
+        message: `Milestone "${ms.title}" approved${isLast ? " — funds released to freelancer" : ""}`,
+        tx_hash: txHash,
+      });
+
+      setReleasedIds(prev => new Set([...prev, ms.id]));
+      onRefresh?.();
+    } catch (err) {
+      setErrorId(ms.id);
+      setErrorMsg(err instanceof Error ? err.message : "Approval failed.");
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   return (
@@ -329,7 +381,7 @@ function MilestoneStepper({ milestones = MILESTONES }) {
         {milestones.map((ms, i) => {
           const { icon, bg, shadow } = stepIcon(ms.status);
           const isLast = i === milestones.length - 1;
-          const active = ms.status === "active" || ms.status === "delivered";
+          const active = norm(ms.status) === "active" || norm(ms.status) === "funded" || norm(ms.status) === "delivered";
 
           return (
             <div key={ms.id} style={{ display: "flex", gap: 16, position: "relative" }}>
@@ -380,34 +432,33 @@ function MilestoneStepper({ milestones = MILESTONES }) {
                     </div>
 
                     {/* Per-milestone action */}
-                    {ms.action === "review" && (
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {approving !== ms.id ? (
-                          <Btn variant="coral" size="sm" onClick={() => setApproving(ms.id)}>
-                            ✓ Approve ${Number(ms.amount_usdc || ms.amount || 0).toFixed(2)}
-                          </Btn>
-                        ) : (
-                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <span style={{ fontSize: 12.5, color: C.textSub }}>Confirm release?</span>
-                            <Btn variant="coral" size="sm" onClick={() => setApproving(null)}>Yes, Release</Btn>
-                            <Btn variant="ghost" size="sm" onClick={() => setApproving(null)}>Cancel</Btn>
-                          </div>
+                    {norm(ms.status) === "delivered" && !releasedIds.has(ms.id) && (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                        <Btn
+                          variant="coral" size="sm"
+                          disabled={loadingId === ms.id}
+                          onClick={() => handleApproveMilestone(ms)}
+                        >
+                          {loadingId === ms.id ? "⏳ Signing…" : `✓ Approve $${Number(ms.amount_usdc || ms.amount || 0).toFixed(2)}`}
+                        </Btn>
+                        {errorId === ms.id && (
+                          <span style={{ fontSize: 11, color: "#F87171" }}>{errorMsg}</span>
                         )}
                       </div>
                     )}
-                    {ms.status === "completed" && (
+                    {(norm(ms.status) === "approved" || norm(ms.status) === "completed" || releasedIds.has(ms.id)) && (
                       <span style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>Released ✓</span>
                     )}
                   </div>
 
-                  {ms.status === "active" && (
+                  {(norm(ms.status) === "active" || norm(ms.status) === "funded") && (
                     <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.55 }}>
                       Freelancer is actively working on this milestone. You'll be notified when it's delivered.
                     </div>
                   )}
-                  {ms.status === "delivered" && (
+                  {norm(ms.status) === "delivered" && (
                     <div style={{ fontSize: 12.5, color: C.textSub, lineHeight: 1.55 }}>
-                      Files submitted — review the delivery zone below and approve or request changes.
+                      Work submitted — approve to release <strong style={{ color: C.coral }}>${Number(ms.amount_usdc || ms.amount || 0).toFixed(2)} USDC</strong> to the freelancer.
                     </div>
                   )}
                 </div>
@@ -550,92 +601,37 @@ function DeliveryZone({ delivered = true, delivery = DELIVERY, activities = [] }
 }
 
 // ── Action Sidebar ──────────────────────────────────────────────────────────
-function ActionSidebar({ escrow, reviewMilestone, hasMilestones, hasRemainingMilestones, onApproved }) {
+function ActionSidebar({ escrow, milestones = [] }) {
   const { supabase } = useAuth();
   const countdown = useCountdown(47 * 3600 + 32 * 60 + 10);
   const onchainEscrowId = parseInt(escrow?.stellar_contract_id ?? "0") || 0;
 
-  // Calculate min guarantee from escrow data
-  const totalUsdc = typeof escrow?.amount_usdc === "number" ? escrow.amount_usdc : Number(escrow?.amount_usdc) || 0;
-  const minGuaranteePct = typeof escrow?.min_guarantee_pct === "number" ? escrow.min_guarantee_pct : 0;
-  const minGuaranteeUsdc = typeof escrow?.min_guarantee_usdc === "number" ? escrow.min_guarantee_usdc : Number(escrow?.min_guarantee_usdc) || totalUsdc * (minGuaranteePct / 100);
+  const minGuaranteeUsdc = typeof escrow?.min_guarantee_usdc === "number"
+    ? escrow.min_guarantee_usdc
+    : Number(escrow?.min_guarantee_usdc) || 0;
 
   const [showDispute, setShowDispute] = useState(false);
-  const [approveLoading, setApproveLoading] = useState(false);
-  const [approveError, setApproveError] = useState(null);
-  const [approveTxHash, setApproveTxHash] = useState(null);
   const [disputeLoading, setDisputeLoading] = useState(false);
   const [disputeError, setDisputeError] = useState(null);
-  const { wallet, connectWallet } = useFreighterWallet();
+  const { connectWallet } = useFreighterWallet();
 
-  const handleApprove = async () => {
-    setApproveLoading(true); setApproveError(null);
-    let fresh;
-    try {
-      fresh = await connectWallet();
-    } catch {
-      setApproveError("Could not connect Freighter wallet.");
-      setApproveLoading(false);
-      return;
-    }
-    if (!fresh?.address) {
-      setApproveError("Connect your Freighter wallet first.");
-      setApproveLoading(false);
-      return;
-    }
-    try {
-      let hash = null;
-      const now = new Date().toISOString();
-      const shouldReleaseOnChain = !hasMilestones || !hasRemainingMilestones;
-
-      if (shouldReleaseOnChain) {
-        const release = await approveRelease(fresh.address, onchainEscrowId);
-        hash = release.hash;
-        setApproveTxHash(hash);
-      } else {
-        setApproveTxHash("milestone-approved");
-      }
-
-      if (reviewMilestone?.id) {
-        await supabase.from("milestones").update({
-          status: "completed",
-          approved_at: now,
-        }).eq("id", reviewMilestone.id);
-
-        const nextSortOrder = Number(reviewMilestone.sort_order || 0) + 1;
-        await supabase.from("milestones").update({ status: "active" })
-          .eq("escrow_id", escrow?.id)
-          .eq("sort_order", nextSortOrder)
-          .eq("status", "created");
-      }
-
-      await supabase.from("escrows").update({
-        status: shouldReleaseOnChain ? "completed" : "active",
-        completed_at: shouldReleaseOnChain ? now : null,
-      }).eq("stellar_contract_id", String(onchainEscrowId));
-
-      await supabase.from("escrow_events").insert({
-        escrow_id: escrow?.id,
-        event_type: shouldReleaseOnChain ? "completed" : "milestone_approved",
-        message: shouldReleaseOnChain
-          ? "Payment approved and released to freelancer"
-          : `Milestone "${reviewMilestone?.title || "Current milestone"}" approved`,
-      });
-
-      if (onApproved) onApproved();
-
-  } catch (err) {
-    setApproveError(err instanceof Error ? err.message : "Transaction failed.");
-  } finally {
-    setApproveLoading(false);
-  }
-};
+  const norm = (s) => (s || "").toLowerCase();
+  const approvedCount = milestones.filter(m => norm(m.status) === "completed").length;
+  const deliveredCount = milestones.filter(m => norm(m.status) === "delivered").length;
 
   const handleDispute = async () => {
-    if (!wallet?.address) { setDisputeError("Connect Freighter wallet first."); return; }
     setDisputeLoading(true); setDisputeError(null);
+    let fresh;
+    try { fresh = await connectWallet(); } catch {
+      setDisputeError("Could not connect Freighter wallet.");
+      setDisputeLoading(false); return;
+    }
+    if (!fresh?.address) {
+      setDisputeError("Connect your Freighter wallet first.");
+      setDisputeLoading(false); return;
+    }
     try {
-      const { hash } = await triggerDispute(wallet.address, onchainEscrowId);
+      const { hash } = await triggerDispute(fresh.address, onchainEscrowId);
       const escrowId = escrow?.id;
       go(`/dispute?tx=${hash}${escrowId ? `&escrow_id=${escrowId}` : ''}`);
     } catch (err) {
@@ -666,66 +662,82 @@ function ActionSidebar({ escrow, reviewMilestone, hasMilestones, hasRemainingMil
       {/* Primary action card */}
       <GlassCard glow={C.coral} style={{ padding: "22px 20px" }}>
         <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text, marginBottom: 4, letterSpacing: "-.02em" }}>Actions</div>
-        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>{actionSubtitle}</div>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>
+          {milestones.length > 0
+            ? `${approvedCount} of ${milestones.length} milestones approved`
+            : "Review delivery and take action"}
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Success state */}
-          {approveTxHash ? (
-            <div style={{ background: "rgba(68,147,66,.1)", border: "1px solid rgba(68,147,66,.3)", borderRadius: 12, padding: "14px 16px", fontSize: 12.5, color: "#7ECFC6", fontFamily: "monospace", wordBreak: "break-all" }}>
-              ✓ Released · Tx: {approveTxHash}
-            </div>
-          ) : (
-            <>
-              {/* Primary CTA */}
-              <Btn variant="coral" size="lg" fullWidth disabled={approveLoading} onClick={handleApprove}>
-                {approveLoading ? "⏳ Signing…" : `✓ Approve & Release ${releaseAmount ? `$${releaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Funds"}`}
-              </Btn>
+          {/* Milestone status */}
+          {milestones.length > 0 && (
+            <div style={{
+              background: deliveredCount > 0 ? "rgba(46,175,125,.08)" : "rgba(63,208,201,.06)",
+              border: `1px solid ${deliveredCount > 0 ? "rgba(46,175,125,.28)" : "rgba(63,208,201,.2)"}`,
+              borderRadius: 12, padding: "12px 14px",
+            }}>
+              {deliveredCount > 0 ? (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.coral, marginBottom: 3 }}>
+                    📦 {deliveredCount} milestone{deliveredCount > 1 ? "s" : ""} ready to approve
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>
+                    See Milestone Tracker below — approve each to release funds.
+                  </div>
+                </>
 
-              {approveError && (
-                <div style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: "#F87171", lineHeight: 1.5 }}>
-                  {approveError}
-                </div>
-              )}
-
-              {/* Secondary */}
-              <Btn variant="blue" size="md" fullWidth>
-                ↩ Request Changes
-              </Btn>
-
-              {/* Destructive */}
-              {!showDispute ? (
-                <button onClick={() => setShowDispute(true)} style={{
-                  background: "transparent", border: `1px solid rgba(239,68,68,.25)`,
-                  borderRadius: 11, padding: "9px 16px", color: "rgba(239,68,68,.7)",
-                  fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: C.font,
-                  transition: "all .15s",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,.08)"; e.currentTarget.style.borderColor = "rgba(239,68,68,.45)"; e.currentTarget.style.color = "#F87171"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(239,68,68,.25)"; e.currentTarget.style.color = "rgba(239,68,68,.7)"; }}
-                >
-                  ⚖️ Raise a Dispute
-                </button>
               ) : (
-                <div style={{ background: "rgba(239,68,68,.07)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, padding: "14px 16px" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#F87171", marginBottom: 6 }}>Raise a Dispute?</div>
-                  <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.55, marginBottom: 12 }}>
-                    A neutral arbitrator will review both sides. The guaranteed floor of ${minGuaranteeUsdc.toLocaleString()} USDC is protected for the freelancer.
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.textSub, marginBottom: 3 }}>
+                    {approvedCount === milestones.length ? "✅ All milestones approved" : "⏳ Awaiting deliveries"}
                   </div>
-                  {disputeError && (
-                    <div style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#F87171", marginBottom: 10 }}>
-                      {disputeError}
-                    </div>
-                  )}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <Btn variant="red" size="sm" disabled={disputeLoading} onClick={handleDispute} style={{ flex: 1, justifyContent: "center" }}>
-                      {disputeLoading ? "⏳ Signing…" : "Confirm Dispute"}
-                    </Btn>
-                    <Btn variant="ghost" size="sm" onClick={() => setShowDispute(false)}>Cancel</Btn>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>
+                    {approvedCount === milestones.length
+                      ? "Payment has been released to the freelancer."
+                      : "Freelancer is working on the milestones."}
                   </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Request Changes */}
+          <Btn variant="blue" size="md" fullWidth>
+            ↩ Request Changes
+          </Btn>
+
+          {/* Dispute */}
+          {!showDispute ? (
+            <button onClick={() => setShowDispute(true)} style={{
+              background: "transparent", border: `1px solid rgba(239,68,68,.25)`,
+              borderRadius: 11, padding: "9px 16px", color: "rgba(239,68,68,.7)",
+              fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: C.font,
+              transition: "all .15s",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,.08)"; e.currentTarget.style.borderColor = "rgba(239,68,68,.45)"; e.currentTarget.style.color = "#F87171"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(239,68,68,.25)"; e.currentTarget.style.color = "rgba(239,68,68,.7)"; }}
+            >
+              ⚖️ Raise a Dispute
+            </button>
+          ) : (
+            <div style={{ background: "rgba(239,68,68,.07)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, padding: "14px 16px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#F87171", marginBottom: 6 }}>Raise a Dispute?</div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.55, marginBottom: 12 }}>
+                A neutral arbitrator will review both sides. The guaranteed floor of ${minGuaranteeUsdc.toLocaleString()} USDC is protected for the freelancer.
+              </div>
+              {disputeError && (
+                <div style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#F87171", marginBottom: 10 }}>
+                  {disputeError}
                 </div>
               )}
-            </>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn variant="red" size="sm" disabled={disputeLoading} onClick={handleDispute} style={{ flex: 1, justifyContent: "center" }}>
+                  {disputeLoading ? "⏳ Signing…" : "Confirm Dispute"}
+                </Btn>
+                <Btn variant="ghost" size="sm" onClick={() => setShowDispute(false)}>Cancel</Btn>
+              </div>
+            </div>
           )}
         </div>
       </GlassCard>
@@ -905,6 +917,8 @@ export default function PangolinEscrowDetail() {
   const [delivery, setDelivery] = useState(null);
   const [escrowEvents, setEscrowEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const onRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
   useEffect(() => {
     let mounted = true;
@@ -972,7 +986,7 @@ export default function PangolinEscrowDetail() {
 
     loadEscrow();
     return () => { mounted = false; };
-  }, [supabase, escrowId]);
+  }, [supabase, escrowId, refreshKey]);
 
   const milestoneRows = milestones.length > 0 ? milestones : [];
   const reviewMilestone = milestoneRows.find(m => m.status === "delivered") || null;
@@ -984,9 +998,10 @@ export default function PangolinEscrowDetail() {
   const platformFee = typeof escrow?.platform_fee_usdc === "number" ? escrow.platform_fee_usdc : Number(escrow?.platform_fee_usdc) || totalUsdc * 0.025;
   const minGuaranteePct = typeof escrow?.min_guarantee_pct === "number" ? escrow.min_guarantee_pct : 0;
   const minGuaranteeUsdc = typeof escrow?.min_guarantee_usdc === "number" ? escrow.min_guarantee_usdc : Number(escrow?.min_guarantee_usdc) || totalUsdc * (minGuaranteePct / 100);
-  const funded = milestoneRows.filter(m => m.status === "completed").reduce((a, m) => a + (Number(m.amount_usdc) || 0), 0);
-  const inFlight = milestoneRows.filter(m => m.status === "active" || m.status === "delivered").reduce((a, m) => a + (Number(m.amount_usdc) || 0), 0);
-  const pending = milestoneRows.filter(m => m.status === "created" || m.status === "funded").reduce((a, m) => a + (Number(m.amount_usdc) || 0), 0);
+  const normSt = (s) => (s || "").toLowerCase();
+  const funded = milestoneRows.filter(m => normSt(m.status) === "completed" || normSt(m.status) === "approved").reduce((a, m) => a + (Number(m.amount_usdc) || 0), 0);
+  const inFlight = milestoneRows.filter(m => normSt(m.status) === "active" || normSt(m.status) === "delivered").reduce((a, m) => a + (Number(m.amount_usdc) || 0), 0);
+  const pending = milestoneRows.filter(m => normSt(m.status) === "created" || normSt(m.status) === "funded" || !m.status).reduce((a, m) => a + (Number(m.amount_usdc) || 0), 0);
   const escrowTitle = escrow?.title || "Escrow Contract";
   const contractId = escrow?.id ? `PGL-${escrow.id}` : "N/A";
   const escrowStatus = escrow?.status || "In Progress";
@@ -1079,19 +1094,13 @@ export default function PangolinEscrowDetail() {
 
             {/* ── Left column ── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              <MilestoneStepper milestones={milestones} />
+              <MilestoneStepper milestones={milestones} supabase={supabase} escrow={escrow} onRefresh={onRefresh} />
               <DeliveryZone delivered={!!delivery} delivery={deliveryDetails} activities={formattedEvents} />
             </div>
 
             {/* ── Right column ── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <ActionSidebar
-                escrow={escrow}
-                reviewMilestone={reviewMilestone}
-                hasMilestones={hasMilestones}
-                hasRemainingMilestones={hasRemainingMilestones}
-                onApproved={() => window.location.reload()}
-              />
+              <ActionSidebar escrow={escrow} milestones={milestones} />
               <FreelancerCard supabase={supabase} freelancerId={escrow?.freelancer_id} />
             </div>
 
